@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hermes-forge"
 version = "0.1.0"
-description = "Local-first improvement control plane for Hermes Agent."
+description = "Anthropic-inspired local-first improvement control plane for Hermes Agent."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "Aleksei Ulianov / Sprut_AI"}]
-keywords = ["hermes-agent", "ai-agents", "evals", "local-first", "agent-improvement"]
+keywords = ["hermes-agent", "ai-agents", "evals", "local-first", "agent-improvement", "self-improvement", "control-plane"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",

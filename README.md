@@ -10,6 +10,19 @@ It scans a Hermes home, collects safe evidence, groups weak signals, and produce
 
 It is **not autonomous self-modification**. It does not rewrite your agent by itself. `apply` is intentionally disabled in this preview.
 
+## Why this exists
+
+Hermes Forge is inspired by the same practical idea behind Anthropic-style self-improvement work: improvement should not mean blind self-editing. It should mean a controlled loop where real behavior produces evidence, evidence becomes a proposed change, and the change is checked before anyone applies it.
+
+For Hermes Agent, that loop becomes:
+
+```text
+Hermes runtime -> evidence -> improvement proposal -> eval plan -> review -> apply gate
+```
+
+This repository is **Anthropic-inspired**, not Anthropic-affiliated, and not an implementation of an official Anthropic system or paper. It translates the principle into a practical, local-first control plane for Hermes users.
+
+
 ## Operating flow
 
 ```text

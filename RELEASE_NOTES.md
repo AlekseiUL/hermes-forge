@@ -2,7 +2,7 @@
 
 ## v0.1.0 — Safety-first preview
 
-Hermes Forge is a local-first improvement control plane for Hermes Agent.
+Hermes Forge is a local-first improvement control plane for Hermes Agent. It is Anthropic-inspired in the narrow engineering sense: evidence-backed improvement proposals, eval plans, review gates, and rollback planning instead of blind autonomous self-modification.
 
 Included in this preview:
 
