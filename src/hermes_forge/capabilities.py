@@ -40,9 +40,11 @@ def build_capabilities() -> dict[str, Any]:
         "schema_version": CAPABILITIES_SCHEMA,
         "package": "hermes-forge",
         "version": __version__,
-        "mvp_boundary": "read-only scan/analyze/propose/eval; apply disabled",
+        "mvp_boundary": "read-only scan/analyze/propose/eval plus gated candidate-apply validation; no apply executor",
         "apply_supported": False,
-        "apply_status": "APPLY_DISABLED_IN_MVP",
+        "apply_status": "APPLY_BLOCKED_NO_EXECUTOR",
+        "legacy_apply_status": "APPLY_DISABLED_IN_MVP",
+        "apply_executor_registered": False,
         "adapters": READ_ONLY_ADAPTERS,
         "side_effects": SIDE_EFFECTS,
         "artifact_classes": {
@@ -57,7 +59,8 @@ def run_doctor() -> dict[str, Any]:
     checks = [
         {"id": "python.version", "status": "OK", "detail": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"},
         {"id": "platform", "status": "OK", "detail": platform.system() or "unknown"},
-        {"id": "apply.disabled", "status": "OK", "detail": capabilities["apply_status"]},
+        {"id": "apply.executor", "status": "OK", "detail": capabilities["apply_status"]},
+        {"id": "apply.legacy_disabled", "status": "OK", "detail": capabilities["legacy_apply_status"]},
         {"id": "side_effects.disabled", "status": "OK", "detail": "no mutation/network/platform side effects in self-check"},
         {"id": "package.import", "status": "OK", "detail": "hermes_forge importable"},
     ]

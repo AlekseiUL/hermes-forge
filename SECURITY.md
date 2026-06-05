@@ -12,7 +12,8 @@ MVP safety boundary:
 
 - scan/analyze/propose/eval are read-only for Hermes inputs;
 - output writes go only under `--out`, and `--out` is blocked when it is inside the scanned Hermes home;
-- `apply` returns `APPLY_DISABLED_IN_MVP`;
+- candidate `apply` validates approval/target/output rules and then returns `APPLY_BLOCKED_NO_EXECUTOR` until a separately reviewed executor exists;
+- legacy proposal `apply` returns `APPLY_DISABLED_IN_MVP`;
 - no gateway restart;
 - no cron execution;
 - no MCP/plugin execution;

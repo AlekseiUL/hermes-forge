@@ -7,6 +7,7 @@ from pathlib import Path
 from hermes_forge import __version__
 from hermes_forge.capabilities import build_capabilities, dumps, run_doctor
 from hermes_forge.analysis import analyze_evidence
+from hermes_forge.apply_gate import run_apply_gate
 from hermes_forge.collectors.cron import collect_cron_evidence
 from hermes_forge.collectors.doctor import collect_doctor_report_evidence
 from hermes_forge.collectors.kanban import collect_kanban_evidence
@@ -156,7 +157,21 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
-    print(json.dumps({"ok": False, "status": "APPLY_DISABLED_IN_MVP", "proposal": safe_path_label(args.proposal), "reason": "Forge MVP does not mutate live Hermes files."}, indent=2))
+    if getattr(args, "candidate", None):
+        missing = [name for name in ("approve", "live_target", "hermes_home", "out") if not getattr(args, name, None)]
+        if missing:
+            print(json.dumps({"ok": False, "status": "APPLY_BLOCKED_MISSING_ARGUMENTS", "missing": missing, "reason": "Candidate apply requires explicit approval, live target, Hermes home and output directory."}, ensure_ascii=False, indent=2))
+            return 2
+        result = run_apply_gate(
+            candidate_path=args.candidate,
+            approve=args.approve,
+            live_target=args.live_target,
+            hermes_home=args.hermes_home,
+            out=args.out,
+        )
+        print(json.dumps(redact_json(result), ensure_ascii=False, indent=2))
+        return 2
+    print(json.dumps({"ok": False, "status": "APPLY_DISABLED_IN_MVP", "proposal": safe_path_label(args.proposal), "reason": "Legacy proposal apply remains disabled. Use --candidate for the gated apply skeleton; no executor mutates live files in this release."}, indent=2))
     return 2
 
 
@@ -254,8 +269,14 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--proposal", required=True)
     ev.add_argument("--out", required=True)
     ev.set_defaults(func=cmd_eval)
-    apply = sub.add_parser("apply")
-    apply.add_argument("--proposal", required=True)
+    apply = sub.add_parser("apply", help="Validate a gated apply request. Legacy proposals remain disabled; candidate mode stops before mutation unless a future executor exists.")
+    apply_source = apply.add_mutually_exclusive_group(required=True)
+    apply_source.add_argument("--proposal", help="Legacy proposal JSON. Always returns APPLY_DISABLED_IN_MVP.")
+    apply_source.add_argument("--candidate", help="candidate-patch.json from diff-preview.")
+    apply.add_argument("--approve", help="Required approval id for candidate mode, printed in candidate-patch.json.")
+    apply.add_argument("--live-target", help="Required explicit live target path for candidate mode. Must be under --hermes-home; not modified by this release.")
+    apply.add_argument("--hermes-home", help="Required in candidate mode. Used for target scope and --out guard.")
+    apply.add_argument("--out", help="Required output directory for candidate mode. Must be outside --hermes-home.")
     apply.set_defaults(func=cmd_apply)
     rollback = sub.add_parser("rollback")
     rollback.add_argument("apply_id")

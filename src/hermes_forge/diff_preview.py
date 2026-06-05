@@ -162,6 +162,7 @@ def build_candidate_patch(payload: dict[str, Any], risk: dict[str, Any], tests: 
         "files_changed": 0,
         "apply_enabled": False,
         "requires_approval_before_apply": True,
+        "approval_id": f"approve:{virtual_path}",
         "virtual_path": virtual_path,
         "live_path": None,
         "candidate_files": [{

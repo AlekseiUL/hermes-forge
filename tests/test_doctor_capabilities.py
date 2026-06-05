@@ -20,6 +20,7 @@ def test_doctor_self_check_has_no_apply_or_side_effects():
     assert data["status"] == "OK"
     assert data["apply_enabled"] is False
     assert data["schema_version"] == "hermes-forge.doctor/v1"
+    assert "APPLY_BLOCKED_NO_EXECUTOR" in p.stdout
     assert "APPLY_DISABLED_IN_MVP" in p.stdout
 
 
@@ -30,6 +31,9 @@ def test_capabilities_are_machine_readable_and_safe():
     data = json.loads(p.stdout)
     assert data["schema_version"] == "hermes-forge.capabilities/v1"
     assert data["apply_supported"] is False
+    assert data["apply_status"] == "APPLY_BLOCKED_NO_EXECUTOR"
+    assert data["legacy_apply_status"] == "APPLY_DISABLED_IN_MVP"
+    assert data["apply_executor_registered"] is False
     assert data["side_effects"]["edits_hermes_home"] is False
     assert data["side_effects"]["network_required"] is False
     assert data["adapters"]["kanban"]["status"] == "optional_path"

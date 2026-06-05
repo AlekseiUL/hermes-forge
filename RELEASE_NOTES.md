@@ -1,5 +1,30 @@
 # Release notes
 
+## v0.6.0 — Gated apply skeleton
+
+Adds the first safe `apply` gate for candidate patches without enabling mutation.
+
+Included:
+
+- `hermes-forge apply --candidate ...` validates a `candidate-patch.json` from `diff-preview`;
+- requires explicit `--approve`, `--live-target`, `--hermes-home`, and `--out`;
+- blocks `--out` inside the scanned Hermes home before writing artifacts;
+- checks that the candidate is preview-only (`files_changed: 0`, `apply_enabled: false`, `live_path: null`);
+- checks that the live target is explicit and under `--hermes-home`;
+- writes `apply-plan.json`, `apply-plan.md`, `backup-manifest.json`, and `apply-result.json`;
+- returns `APPLY_BLOCKED_NO_EXECUTOR` when all pre-executor gates pass, because no apply executor is registered in this release;
+- legacy `apply --proposal` remains disabled with `APPLY_DISABLED_IN_MVP`.
+
+Safety boundary remains unchanged:
+
+- no live Hermes edits;
+- no patch application;
+- no backup copying of live files yet;
+- no gateway restarts;
+- no cron/plugin/MCP execution;
+- no platform messages;
+- no raw logs, command args, chat IDs, secrets or session transcripts are exported.
+
 ## v0.5.0 — Candidate patch preview
 
 Adds the next safe step inside `diff-preview`: a review-only candidate unified diff.

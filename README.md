@@ -8,7 +8,7 @@ Forge helps any Hermes user answer one practical question:
 
 It scans a Hermes home, collects safe evidence, groups weak signals, and produces reviewable improvement opportunities with hypotheses, experiments, success criteria and safe next steps.
 
-It is **not autonomous self-modification**. It does not rewrite your agent by itself. `apply` is intentionally disabled in this preview.
+It is **not autonomous self-modification**. It does not rewrite your agent by itself. The candidate `apply` path is a gated skeleton: it validates approval/target/output rules and then stops before mutation because no executor is registered in this preview.
 
 ## Why this exists
 
@@ -174,6 +174,34 @@ Diff-preview artifacts include:
 
 `diff-preview` shows what kind of file/change could be prepared next, why, what tests should run, and what rollback would be needed. When the experiment is ready, it also writes a **candidate patch preview**: a unified diff against a virtual review path. That diff is for review only. It has no live target path, changes zero files, and still requires a separate approval/apply gate.
 
+## Apply gate skeleton
+
+Validate a candidate apply request without mutating live files:
+
+```bash
+hermes-forge apply \
+  --candidate ./forge-runs/diff-preview/opp-0001/candidate-patch.json \
+  --approve 'approve:hermes-forge-candidates/opp-0001/skill_frontmatter.md' \
+  --live-target ~/.hermes/profiles/operator/skills/example/SKILL.md \
+  --hermes-home ~/.hermes \
+  --out ./forge-runs/apply/opp-0001
+```
+
+Apply-gate artifacts include:
+
+- `apply-plan.json`
+- `apply-plan.md`
+- `backup-manifest.json`
+- `apply-result.json`
+
+Expected candidate apply result in this release:
+
+```json
+{"status": "APPLY_BLOCKED_NO_EXECUTOR"}
+```
+
+That is intentional. The command checks that the candidate is preview-only, the approval id matches, the live target is explicit and under `--hermes-home`, and `--out` is outside the scanned Hermes home. Then it stops because no apply executor exists yet.
+
 ## Low-level example flow
 
 These commands use synthetic fixtures from this source checkout:
@@ -235,6 +263,7 @@ Implemented:
 - baseline comparison between read-only `improve` runs;
 - safe `experiment` planner/results between opportunity and future diff-preview;
 - preview-only `diff-preview` package with proposed file shapes, risk check, tests, rollback plan and candidate unified diff artifacts;
+- gated apply skeleton that validates candidate approval/target/output rules and then blocks before mutation because no executor is registered;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
 - actionable proposal templates with priority, review focus and next checks;
@@ -249,7 +278,8 @@ Known limitations:
 - log taxonomy is heuristic and category-only;
 - eval output is a deterministic plan, not a benchmark runner;
 - candidate diffs use virtual review paths until a concrete live target is approved;
-- `apply` is disabled in MVP.
+- candidate `apply` creates only review artifacts and returns non-zero until a separately reviewed executor exists;
+- legacy proposal `apply` remains disabled in MVP.
 
 ## Canonical source
 

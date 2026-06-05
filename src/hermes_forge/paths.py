@@ -16,7 +16,7 @@ def ensure_under(path: Path, root: Path) -> Path:
     resolved = path.resolve()
     root_resolved = root.resolve()
     if resolved != root_resolved and root_resolved not in resolved.parents:
-        raise ValueError(f"path escapes allowed root: {path}")
+        raise ValueError("path escapes allowed root")
     return resolved
 
 
@@ -27,6 +27,12 @@ def is_under(path: Path, root: Path) -> bool:
 
 
 def write_text_under(path: Path, root: Path, text: str) -> None:
+    if path.is_symlink():
+        raise ValueError("refusing to overwrite symlink artifact")
     target = ensure_under(path, root)
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        stat = target.stat()
+        if getattr(stat, "st_nlink", 1) > 1:
+            raise ValueError("refusing to overwrite hardlinked artifact")
     target.write_text(text, encoding="utf-8")

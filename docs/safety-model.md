@@ -9,7 +9,8 @@ Hermes Forge treats local Hermes data as sensitive and untrusted evidence.
 - Redaction before writing artifacts.
 - Writes only under `--out`.
 - No cron/gateway/MCP/plugin execution.
-- `apply` disabled in MVP.
+- Candidate `apply` validates approval/target/output rules and then blocks before mutation because no executor is registered.
+- Legacy proposal `apply` remains disabled in MVP.
 
 ## Intended-shareable vs local-private artifacts
 
