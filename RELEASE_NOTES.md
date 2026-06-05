@@ -1,5 +1,26 @@
 # Release notes
 
+## v0.2.0 — Universal read-only improvement loop
+
+Adds the first product-level auto-improvement loop for Hermes installations:
+
+- new `hermes-forge improve --mode read-only` command;
+- one-shot flow from safe collection to evidence, findings, opportunities and human report;
+- improvement opportunities with hypotheses, experiments, success criteria and safe next steps;
+- universal roles (`system_owner`, `reviewer`, `implementer`, `approver`) instead of internal team roles;
+- new artifacts: `run.json`, `policy.json`, `opportunities.json`, `proposals.json`, `report.md`;
+- no-write/no-raw-log/no-secret regression tests for the improvement loop;
+- README now leads with the universal improvement loop instead of a repair-only diagnostic flow.
+
+Safety boundary remains unchanged:
+
+- `apply` is still disabled with `APPLY_DISABLED_IN_MVP`;
+- read-only improve mode writes only under `--out`;
+- `--out` under the scanned Hermes home is blocked;
+- no live Hermes edits;
+- no gateway restarts;
+- no cron/plugin/MCP execution.
+
 ## v0.1.2 — Safe log classifiers
 
 Adds safer and more actionable runtime-log evidence:

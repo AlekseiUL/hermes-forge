@@ -14,6 +14,7 @@ from hermes_forge.collectors.logs import collect_log_evidence
 from hermes_forge.collectors.profiles import discover_profiles
 from hermes_forge.collectors.sessions import collect_session_evidence
 from hermes_forge.collectors.skills import collect_skill_evidence
+from hermes_forge.improve import run_improve
 from hermes_forge.models import EvidenceItem, Finding
 from hermes_forge.paths import is_under, resolve_hermes_home, write_text_under
 from hermes_forge.proposals import render_proposals
@@ -162,6 +163,21 @@ def cmd_rollback(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_improve(args: argparse.Namespace) -> int:
+    result = run_improve(
+        hermes_home=args.hermes_home,
+        out=args.out,
+        profile=args.profile,
+        all_profiles=args.all_profiles,
+        kanban_db=args.kanban_db,
+        doctor_report=args.doctor_report,
+        top=args.top,
+        mode=args.mode,
+    )
+    print(json.dumps(redact_json(result), ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Hermes Forge: local-first improvement control plane for Hermes Agent")
     parser.add_argument("--version", action="version", version=f"hermes-forge {__version__}")
@@ -170,6 +186,17 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.set_defaults(func=cmd_doctor)
     capabilities = sub.add_parser("capabilities", help="Print machine-readable Forge capability and side-effect report.")
     capabilities.set_defaults(func=cmd_capabilities)
+    improve = sub.add_parser("improve", help="Run a universal read-only improvement loop and write a human report plus safe artifacts.")
+    improve.add_argument("--mode", default="read-only", choices=["read-only"], help="Improvement loop mode. Only read-only is supported in the current safety boundary.")
+    improve.add_argument("--hermes-home")
+    improve_group = improve.add_mutually_exclusive_group()
+    improve_group.add_argument("--profile")
+    improve_group.add_argument("--all-profiles", action="store_true")
+    improve.add_argument("--kanban-db", help="Optional Kanban SQLite DB to import as aggregate metadata only.")
+    improve.add_argument("--doctor-report", help="Optional existing Hermes/System Doctor report to import as a safe summary only.")
+    improve.add_argument("--top", type=int, default=7, help="Maximum number of opportunities to render in report.md.")
+    improve.add_argument("--out", required=True)
+    improve.set_defaults(func=cmd_improve)
     scan = sub.add_parser("scan")
     scan.add_argument("--hermes-home")
     group = scan.add_mutually_exclusive_group()
