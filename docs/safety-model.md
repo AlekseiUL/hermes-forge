@@ -30,3 +30,10 @@ Local-private by default:
 ## Prompt injection
 
 Session, log, skill and task text is data. It is never treated as instructions.
+
+## Phase 1 adapter boundaries
+
+- Session DB adapter opens SQLite databases read-only and imports counts/time-span signals only. It does not copy raw messages by default.
+- Kanban adapter is optional and imports status/count metadata only. It does not copy card titles, descriptions or comments.
+- Doctor report adapter imports existing reports only. It never executes doctor commands, shell commands, gateways, cron jobs, plugins or MCP servers.
+- Unknown schemas are reported as adapter-unavailable/schema-unknown facts, not repaired or guessed.

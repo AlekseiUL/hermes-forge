@@ -1,0 +1,10 @@
+{
+  "schema_version": "fixture.doctor/v1",
+  "status": "WARN",
+  "findings": [
+    {
+      "id": "f1",
+      "detail": "private path trap should not leak"
+    }
+  ]
+}

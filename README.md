@@ -28,7 +28,7 @@ python -m pytest -q
 ## Commands
 
 ```bash
-hermes-forge scan --hermes-home tests/fixtures/hermes_home_minimal --all-profiles --out /tmp/hermes-forge-scan
+hermes-forge scan --hermes-home tests/fixtures/hermes_home_minimal --all-profiles --kanban-db tests/fixtures/kanban/kanban.db --doctor-report tests/fixtures/doctor/report.json --out /tmp/hermes-forge-scan
 hermes-forge analyze --scan /tmp/hermes-forge-scan --out /tmp/hermes-forge-scan/analysis
 hermes-forge propose --analysis /tmp/hermes-forge-scan/analysis --out /tmp/hermes-forge-scan/proposals
 hermes-forge eval --proposal /tmp/hermes-forge-scan/proposals/prop-0001/proposal.json --out /tmp/hermes-forge-scan/evals/prop-0001
@@ -47,7 +47,8 @@ Expected MVP apply result:
 
 - CLI skeleton: `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`.
 - Read-only fixture scan.
-- Profile/skill/cron/log collectors over synthetic Hermes homes.
+- Profile/skill/cron/log/session-metadata collectors over synthetic Hermes homes.
+- Optional Kanban DB and Doctor report import as aggregate/safe-summary evidence.
 - Evidence ledger JSONL.
 - Findings taxonomy and Markdown report.
 - Proposal artifacts with diff preview, eval plan and rollback plan.
@@ -57,9 +58,7 @@ Expected MVP apply result:
 
 ## Planned
 
-- Session DB adapter.
-- Kanban adapter.
-- Doctor report adapter.
+- Session schema coverage beyond the current bounded metadata fixture.
 - More deterministic eval templates.
 - Optional semantic judge.
 - Apply executors only after separate approval and backup/rollback tests.
@@ -67,8 +66,8 @@ Expected MVP apply result:
 ## Known limitations
 
 - Phase 0 uses synthetic fixtures by default.
-- No session DB adapter yet.
-- No Kanban adapter yet.
+- Session DB support is metadata-only and schema-limited.
+- Kanban support is optional and metadata-only.
 - Log taxonomy is heuristic and category-only.
 - Eval output is a plan, not a benchmark runner.
 - `apply` is disabled in MVP.

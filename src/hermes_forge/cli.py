@@ -7,8 +7,11 @@ from pathlib import Path
 from hermes_forge import __version__
 from hermes_forge.analysis import analyze_evidence
 from hermes_forge.collectors.cron import collect_cron_evidence
+from hermes_forge.collectors.doctor import collect_doctor_report_evidence
+from hermes_forge.collectors.kanban import collect_kanban_evidence
 from hermes_forge.collectors.logs import collect_log_evidence
 from hermes_forge.collectors.profiles import discover_profiles
+from hermes_forge.collectors.sessions import collect_session_evidence
 from hermes_forge.collectors.skills import collect_skill_evidence
 from hermes_forge.models import EvidenceItem, Finding
 from hermes_forge.paths import is_under, resolve_hermes_home, write_text_under
@@ -28,6 +31,11 @@ def _load_ledger(path: Path) -> list[EvidenceItem]:
     return items
 
 
+def _bump_next_id(next_id: int, evidence: list[EvidenceItem], batch: list[EvidenceItem]) -> int:
+    evidence.extend(batch)
+    return next_id + len(batch)
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     home = resolve_hermes_home(args.hermes_home)
     out = Path(args.out).resolve()
@@ -36,27 +44,45 @@ def cmd_scan(args: argparse.Namespace) -> int:
         return 2
     out.mkdir(parents=True, exist_ok=True)
     inventory = discover_profiles(home, all_profiles=args.all_profiles, profile=args.profile)
-    evidence = []
+    evidence: list[EvidenceItem] = []
     next_id = 1
+    adapters: dict[str, dict[str, object]] = {
+        "profiles": {"status": "enabled"},
+        "skills": {"status": "enabled"},
+        "cron": {"status": "enabled"},
+        "logs": {"status": "enabled"},
+        "sessions": {"status": "enabled", "mode": "metadata_only"},
+        "kanban": {"status": "enabled" if args.kanban_db else "not_configured", "mode": "metadata_only"},
+        "doctor_report": {"status": "enabled" if args.doctor_report else "not_configured", "mode": "safe_summary_only"},
+    }
     for row in inventory["profiles"]:
         if not row.get("exists") or row.get("status") == "skipped_symlink":
             continue
         profile_name = row["name"]
         profile_path = home if profile_name == "default" else home / "profiles" / profile_name
         for collector in [
-            lambda p, n: collect_skill_evidence(p, n, home, next_id),
-            lambda p, n: collect_cron_evidence(p, n, home, next_id),
-            lambda p, n: collect_log_evidence(p, n, next_id),
+            lambda p, n, i: collect_skill_evidence(p, n, home, i),
+            lambda p, n, i: collect_cron_evidence(p, n, home, i),
+            lambda p, n, i: collect_log_evidence(p, n, i),
+            lambda p, n, i: collect_session_evidence(p, n, home, i),
         ]:
-            batch = collector(profile_path, profile_name)
-            evidence.extend(batch)
-            next_id += len(batch)
+            batch = collector(profile_path, profile_name, next_id)
+            next_id = _bump_next_id(next_id, evidence, batch)
+    next_id = _bump_next_id(next_id, evidence, collect_kanban_evidence(Path(args.kanban_db) if args.kanban_db else None, home, next_id))
+    next_id = _bump_next_id(next_id, evidence, collect_doctor_report_evidence(Path(args.doctor_report) if args.doctor_report else None, home, next_id))
+    inventory["adapters"] = adapters
     write_text_under(out / "inventory.json", out, json.dumps(redact_json(inventory), ensure_ascii=False, indent=2))
     ledger = "\n".join(json.dumps(redact_json(e.to_dict()), ensure_ascii=False) for e in evidence) + ("\n" if evidence else "")
     write_text_under(out / "evidence-ledger.jsonl", out, ledger)
-    write_text_under(out / "source-ledger.md", out, f"# Source ledger\n\n- hermes_home: {inventory['hermes_home']}\n- profiles: {len(inventory['profiles'])}\n- evidence_items: {len(evidence)}\n")
-    summary = {"schema_version": "hermes-forge.scan-summary/v1", "profiles": len(inventory["profiles"]), "evidence_items": len(evidence), "apply_enabled": False}
-    write_text_under(out / "scan-summary.json", out, json.dumps(summary, ensure_ascii=False, indent=2))
+    by_source: dict[str, int] = {}
+    for item in evidence:
+        by_source[item.source_type] = by_source.get(item.source_type, 0) + 1
+    source_lines = ["# Source ledger", "", f"- hermes_home: {inventory['hermes_home']}", f"- profiles: {len(inventory['profiles'])}", f"- evidence_items: {len(evidence)}", "", "## Adapter status"]
+    for name, status in sorted(adapters.items()):
+        source_lines.append(f"- {name}: {status['status']}")
+    write_text_under(out / "source-ledger.md", out, "\n".join(source_lines) + "\n")
+    summary = {"schema_version": "hermes-forge.scan-summary/v1", "profiles": len(inventory["profiles"]), "evidence_items": len(evidence), "evidence_by_source": by_source, "adapters": adapters, "apply_enabled": False}
+    write_text_under(out / "scan-summary.json", out, json.dumps(redact_json(summary), ensure_ascii=False, indent=2))
     write_text_under(out / "redaction-report.json", out, json.dumps({"schema_version": "hermes-forge.redaction-report/v1", "redaction_enabled": True}, indent=2))
     print(json.dumps({"ok": True, "status": "OK", "out": safe_path_label(out, home), "summary": summary}, ensure_ascii=False, indent=2))
     return 0
@@ -72,7 +98,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     write_text_under(out / "findings.json", out, json.dumps(redact_json(payload), ensure_ascii=False, indent=2))
     md = ["# Forge findings", ""]
     if not findings:
-        md.append("- No findings. NO_CHANGE is recommended.")
+        md.append("- No findings. NO_CHANGE proposal is recommended.")
     for f in findings:
         md.append(f"## {f.id} / {f.type}")
         md.append(f"- severity: `{f.severity}`")
@@ -100,9 +126,15 @@ def cmd_eval(args: argparse.Namespace) -> int:
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     data = json.loads(proposal.read_text(encoding="utf-8"))
-    plan = {"schema_version": "hermes-forge.eval-plan/v1", "proposal_id": data.get("id"), "checks": ["schema", "privacy", "no-live-apply"], "status": "PLAN_ONLY"}
-    write_text_under(out / "eval-plan.json", out, json.dumps(plan, indent=2))
-    write_text_under(out / "deterministic-checks.json", out, json.dumps({"schema_version": "hermes-forge.deterministic-checks/v1", "checks": plan["checks"]}, indent=2))
+    target_type = data.get("target_type", "unknown")
+    checks = ["schema", "privacy", "no-live-apply", "rollback-plan"]
+    if target_type == "no_change":
+        checks.extend(["evidence-insufficient", "no-change-rationale"])
+    else:
+        checks.extend(["evidence-linked", "diff-preview-only", "manual-review-required"])
+    plan = {"schema_version": "hermes-forge.eval-plan/v1", "proposal_id": data.get("id"), "target_type": target_type, "checks": checks, "status": "PLAN_ONLY", "semantic_judge_enabled": False}
+    write_text_under(out / "eval-plan.json", out, json.dumps(redact_json(plan), indent=2))
+    write_text_under(out / "deterministic-checks.json", out, json.dumps({"schema_version": "hermes-forge.deterministic-checks/v1", "checks": checks, "stable_order": True}, indent=2))
     print(json.dumps({"ok": True, "status": "OK", "out": safe_path_label(out)}, indent=2))
     return 0
 
@@ -126,6 +158,8 @@ def build_parser() -> argparse.ArgumentParser:
     group = scan.add_mutually_exclusive_group()
     group.add_argument("--profile")
     group.add_argument("--all-profiles", action="store_true")
+    scan.add_argument("--kanban-db", help="Optional Kanban SQLite DB to import as aggregate metadata only.")
+    scan.add_argument("--doctor-report", help="Optional existing Hermes/System Doctor report to import as a safe summary only.")
     scan.add_argument("--out", required=True)
     scan.set_defaults(func=cmd_scan)
     analyze = sub.add_parser("analyze")
