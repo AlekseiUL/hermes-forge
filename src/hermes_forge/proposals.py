@@ -21,7 +21,7 @@ def render_proposals(findings: list[Finding], out_dir: Path) -> list[Path]:
         write_text_under(prop_dir / "proposal.json", out_dir, json.dumps(data, indent=2))
         write_text_under(prop_dir / "proposal.md", out_dir, "# Proposal prop-0001\n\nNo change recommended from current evidence.\n\nThis is an explicit NO_CHANGE proposal, not a missing result.\n")
         write_text_under(prop_dir / "diff.preview", out_dir, "# NO_CHANGE\n\nNo file diff is proposed.\n")
-        write_text_under(prop_dir / "eval-plan.md", out_dir, "# Eval plan for prop-0001\n\n- Verify evidence is insufficient for a change.\n- Verify privacy scan passes.\n- Verify no apply path is enabled.\n")
+        write_text_under(prop_dir / "eval-plan.md", out_dir, "# Eval plan for prop-0001\n\n- Verify evidence is insufficient for a change.\n- Verify privacy scan passes.\n- Verify no candidate executor should run for a NO_CHANGE proposal.\n")
         write_text_under(prop_dir / "rollback.md", out_dir, "# Rollback\n\nNo change is proposed or applied. Nothing to roll back.\n")
         written.append(prop_dir / "proposal.json")
         return written
@@ -49,9 +49,9 @@ def render_proposals(findings: list[Finding], out_dir: Path) -> list[Path]:
             "rollback_path": "rollback.md",
         }
         write_text_under(prop_dir / "proposal.json", out_dir, json.dumps(data, indent=2))
-        write_text_under(prop_dir / "proposal.md", out_dir, f"# Proposal {pid}\n\n## Priority\n- label: `{finding.priority_label}`\n- score: `{finding.priority_score}`\n- reason: {finding.priority_reason}\n\n## Review focus\n{finding.review_focus}\n\n## Hypothesis\n{finding.root_cause_hypothesis}\n\n## Evidence\n{', '.join(finding.evidence_ids)}\n\n## Next checks\n{_md_list(finding.next_checks)}\n\n## Why no auto-apply\nForge MVP apply is disabled. Treat this proposal as a review card, not an instruction to edit live Hermes files.\n")
-        write_text_under(prop_dir / "diff.preview", out_dir, "# No live diff in MVP\n\nForge proposes review work only. Do not apply changes until a human or approved technical agent validates evidence and rollback.\n")
-        write_text_under(prop_dir / "eval-plan.md", out_dir, f"# Eval plan for {pid}\n\n- Verify proposal schema and priority fields.\n- Verify evidence IDs exist in the evidence ledger.\n- Run privacy scan on generated artifacts.\n- Perform the next checks listed in `proposal.md` before any manual change.\n- Re-run Forge scan after any future manual change and compare finding count/priority.\n")
-        write_text_under(prop_dir / "rollback.md", out_dir, "# Rollback\n\nNo change is applied by Forge MVP. If a human later applies a related fix, rollback must be defined in that separate change plan.\n")
+        write_text_under(prop_dir / "proposal.md", out_dir, f"# Proposal {pid}\n\n## Priority\n- label: `{finding.priority_label}`\n- score: `{finding.priority_score}`\n- reason: {finding.priority_reason}\n\n## Review focus\n{finding.review_focus}\n\n## Hypothesis\n{finding.root_cause_hypothesis}\n\n## Evidence\n{', '.join(finding.evidence_ids)}\n\n## Next checks\n{_md_list(finding.next_checks)}\n\n## Why no blind auto-apply\nForge can run only approved, registered candidate executors. Arbitrary proposal text is a review card, not an instruction to edit live Hermes files.\n")
+        write_text_under(prop_dir / "diff.preview", out_dir, "# No live diff in proposal stage\n\nForge proposes review work first. Candidate apply requires a separate candidate payload, approval id, scoped live target, backup and registered executor.\n")
+        write_text_under(prop_dir / "eval-plan.md", out_dir, f"# Eval plan for {pid}\n\n- Verify proposal schema and priority fields.\n- Verify evidence IDs exist in the evidence ledger.\n- Run privacy scan on generated artifacts.\n- Perform the next checks listed in `proposal.md` before any candidate apply.\n- Re-run Forge scan after any approved bounded change and compare finding count/priority.\n")
+        write_text_under(prop_dir / "rollback.md", out_dir, "# Rollback\n\nProposal stage does not apply changes. If a later bounded candidate executor runs, restore from that apply output's backup manifest if rollback is needed.\n")
         written.append(prop_dir / "proposal.json")
     return written

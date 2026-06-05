@@ -168,16 +168,17 @@ def cmd_apply(args: argparse.Namespace) -> int:
             live_target=args.live_target,
             hermes_home=args.hermes_home,
             out=args.out,
+            execute=args.execute,
         )
         print(json.dumps(redact_json(result), ensure_ascii=False, indent=2))
-        return 2
-    print(json.dumps({"ok": False, "status": "APPLY_DISABLED_IN_MVP", "proposal": safe_path_label(args.proposal), "reason": "Legacy proposal apply remains disabled. Use --candidate for the gated apply skeleton; no executor mutates live files in this release."}, indent=2))
+        return 0 if result.get("ok") else 2
+    print(json.dumps({"ok": False, "status": "APPLY_DISABLED_IN_MVP", "proposal": safe_path_label(args.proposal), "reason": "Legacy proposal apply remains disabled. Use --candidate with an approved registered executor for bounded apply."}, indent=2))
     return 2
 
 
 def cmd_rollback(args: argparse.Namespace) -> int:
-    print(json.dumps({"ok": True, "status": "NO_APPLY_LOG", "apply_id": args.apply_id, "reason": "No changes are applied in MVP."}, indent=2))
-    return 0
+    print(json.dumps({"ok": False, "status": "ROLLBACK_MANUAL_BACKUP_RESTORE_REQUIRED", "apply_id": args.apply_id, "reason": "Bounded apply creates a local backup under the apply output directory, but automatic rollback is not implemented in this release. Restore the target from backup-manifest.json manually."}, indent=2))
+    return 2
 
 
 def cmd_diff_preview(args: argparse.Namespace) -> int:
@@ -269,14 +270,15 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--proposal", required=True)
     ev.add_argument("--out", required=True)
     ev.set_defaults(func=cmd_eval)
-    apply = sub.add_parser("apply", help="Validate a gated apply request. Legacy proposals remain disabled; candidate mode stops before mutation unless a future executor exists.")
+    apply = sub.add_parser("apply", help="Validate candidate apply requests and optionally run a registered bounded executor after explicit approval.")
     apply_source = apply.add_mutually_exclusive_group(required=True)
     apply_source.add_argument("--proposal", help="Legacy proposal JSON. Always returns APPLY_DISABLED_IN_MVP.")
     apply_source.add_argument("--candidate", help="candidate-patch.json from diff-preview.")
     apply.add_argument("--approve", help="Required approval id for candidate mode, printed in candidate-patch.json.")
-    apply.add_argument("--live-target", help="Required explicit live target path for candidate mode. Must be under --hermes-home; not modified by this release.")
+    apply.add_argument("--live-target", help="Required explicit live target path for candidate mode. Must be under --hermes-home; may be modified only by a registered executor when --execute is set.")
     apply.add_argument("--hermes-home", help="Required in candidate mode. Used for target scope and --out guard.")
     apply.add_argument("--out", help="Required output directory for candidate mode. Must be outside --hermes-home.")
+    apply.add_argument("--execute", action="store_true", help="Run a registered bounded executor after all candidate gates pass. Only skill_frontmatter_metadata_v1 is supported in this release.")
     apply.set_defaults(func=cmd_apply)
     rollback = sub.add_parser("rollback")
     rollback.add_argument("apply_id")

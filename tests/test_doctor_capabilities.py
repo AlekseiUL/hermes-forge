@@ -18,9 +18,10 @@ def test_doctor_self_check_has_no_apply_or_side_effects():
     assert p.returncode == 0, p.stdout
     data = json.loads(p.stdout)
     assert data["status"] == "OK"
-    assert data["apply_enabled"] is False
+    assert data["bounded_apply_enabled"] is True
+    assert data["arbitrary_apply_enabled"] is False
     assert data["schema_version"] == "hermes-forge.doctor/v1"
-    assert "APPLY_BLOCKED_NO_EXECUTOR" in p.stdout
+    assert "BOUNDED_EXECUTOR_AVAILABLE" in p.stdout
     assert "APPLY_DISABLED_IN_MVP" in p.stdout
 
 
@@ -30,11 +31,13 @@ def test_capabilities_are_machine_readable_and_safe():
     assert p.returncode == 0, p.stdout
     data = json.loads(p.stdout)
     assert data["schema_version"] == "hermes-forge.capabilities/v1"
-    assert data["apply_supported"] is False
-    assert data["apply_status"] == "APPLY_BLOCKED_NO_EXECUTOR"
+    assert data["apply_supported"] is True
+    assert data["apply_status"] == "BOUNDED_EXECUTOR_AVAILABLE"
     assert data["legacy_apply_status"] == "APPLY_DISABLED_IN_MVP"
-    assert data["apply_executor_registered"] is False
-    assert data["side_effects"]["edits_hermes_home"] is False
+    assert data["apply_executor_registered"] is True
+    assert data["apply_executors"] == ["skill_frontmatter_metadata_v1"]
+    assert data["side_effects"]["edits_hermes_home_by_default"] is False
+    assert data["side_effects"]["bounded_apply_edits_approved_skill_frontmatter"] is True
     assert data["side_effects"]["network_required"] is False
     assert data["adapters"]["kanban"]["status"] == "optional_path"
 

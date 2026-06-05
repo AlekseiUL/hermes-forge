@@ -12,7 +12,7 @@ def run(args, cwd: Path):
     return subprocess.run([sys.executable, "-m", "hermes_forge.cli", *args], cwd=cwd, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
 
 
-def make_candidate(path: Path) -> dict:
+def make_candidate(path: Path, *, executable: bool = False, patch: dict | None = None) -> dict:
     candidate = {
         "schema_version": "hermes-forge.candidate-patch/v1",
         "status": "CANDIDATE_PATCH_PREVIEW_ONLY",
@@ -26,6 +26,9 @@ def make_candidate(path: Path) -> dict:
         "candidate_files": [],
         "unified_diff": "--- a/hermes-forge-candidates/opp-ready/skill_frontmatter.md\n+++ b/hermes-forge-candidates/opp-ready/skill_frontmatter.md\n",
     }
+    if executable:
+        candidate["executor_id"] = "skill_frontmatter_metadata_v1"
+        candidate["frontmatter_patch"] = patch or {"description": "Updated by Hermes Forge", "tags": ["forge-reviewed"]}
     path.write_text(json.dumps(candidate), encoding="utf-8")
     return candidate
 
@@ -59,7 +62,7 @@ def test_apply_candidate_prechecks_pass_then_block_no_executor(tmp_path: Path):
     plan = json.loads((out / "apply-plan.json").read_text())
     assert plan["approval_matched"] is True
     assert plan["live_target"].startswith("<hermes-home>/")
-    assert all(g["status"] == "pass" for g in plan["gates"] if g["name"] != "executor_registered")
+    assert all(g["status"] == "pass" for g in plan["gates"] if g["name"] not in {"executor_registered", "execute_requested"})
     assert [g for g in plan["gates"] if g["name"] == "executor_registered"][0]["status"] == "fail"
     backup = json.loads((out / "backup-manifest.json").read_text())
     assert backup["status"] == "BACKUP_NOT_CREATED_NO_EXECUTOR"
@@ -226,3 +229,147 @@ def test_apply_candidate_refuses_symlink_artifact_even_when_target_is_inside_out
     assert "symlink" in result["reason"]
     assert inner.read_text(encoding="utf-8") == "INNER\n"
     assert target.read_text(encoding="utf-8") == "LIVE\n"
+
+
+def test_apply_execute_skill_frontmatter_metadata_changes_only_frontmatter(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    home = tmp_path / "home"
+    target = home / "profiles" / "operator" / "skills" / "demo" / "SKILL.md"
+    target.parent.mkdir(parents=True)
+    original_body = "# Demo skill\n\nDo not touch this body.\n"
+    target.write_text("---\nname: demo\ndescription: Old description\ntags:\n  - old\n---\n" + original_body, encoding="utf-8")
+    candidate_path = tmp_path / "candidate-patch.json"
+    candidate = make_candidate(candidate_path, executable=True, patch={"description": "Safer metadata", "tags": ["forge-reviewed", "metadata"]})
+    out = tmp_path / "apply-out"
+
+    p = run([
+        "apply",
+        "--candidate", str(candidate_path),
+        "--approve", candidate["approval_id"],
+        "--live-target", str(target),
+        "--hermes-home", str(home),
+        "--out", str(out),
+        "--execute",
+    ], repo)
+
+    assert p.returncode == 0
+    result = json.loads(p.stdout)
+    assert result["status"] == "APPLY_EXECUTED"
+    assert result["ok"] is True
+    assert result["files_changed"] == 1
+    assert result["apply_enabled"] is True
+    assert result["executor_ran"] is True
+    updated = target.read_text(encoding="utf-8")
+    assert "description: \"Safer metadata\"" in updated
+    assert "  - \"forge-reviewed\"" in updated
+    assert original_body in updated
+    assert (out / "backups" / "target-before.txt").read_text(encoding="utf-8").startswith("---\nname: demo")
+    backup = json.loads((out / "backup-manifest.json").read_text())
+    assert backup["status"] == "BACKUP_CREATED"
+
+
+def test_apply_supported_executor_without_execute_stops_before_mutation(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    home = tmp_path / "home"
+    target = home / "SKILL.md"
+    home.mkdir()
+    target.write_text("---\nname: demo\n---\nbody\n", encoding="utf-8")
+    candidate_path = tmp_path / "candidate-patch.json"
+    candidate = make_candidate(candidate_path, executable=True)
+    out = tmp_path / "apply-out"
+
+    p = run([
+        "apply",
+        "--candidate", str(candidate_path),
+        "--approve", candidate["approval_id"],
+        "--live-target", str(target),
+        "--hermes-home", str(home),
+        "--out", str(out),
+    ], repo)
+
+    assert p.returncode == 2
+    result = json.loads(p.stdout)
+    assert result["status"] == "APPLY_READY_EXECUTOR_AVAILABLE"
+    assert result["executor_ran"] is False
+    assert target.read_text(encoding="utf-8") == "---\nname: demo\n---\nbody\n"
+
+
+def test_apply_execute_blocks_non_skill_target_without_mutation(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    home = tmp_path / "home"
+    target = home / "config.yaml"
+    home.mkdir()
+    target.write_text("---\nname: demo\n---\nbody\n", encoding="utf-8")
+    candidate_path = tmp_path / "candidate-patch.json"
+    candidate = make_candidate(candidate_path, executable=True)
+    out = tmp_path / "apply-out"
+
+    p = run([
+        "apply",
+        "--candidate", str(candidate_path),
+        "--approve", candidate["approval_id"],
+        "--live-target", str(target),
+        "--hermes-home", str(home),
+        "--out", str(out),
+        "--execute",
+    ], repo)
+
+    assert p.returncode == 2
+    result = json.loads(p.stdout)
+    assert result["status"] == "APPLY_EXECUTION_BLOCKED"
+    assert "SKILL.md" in result["reason"]
+    assert target.read_text(encoding="utf-8") == "---\nname: demo\n---\nbody\n"
+
+
+def test_apply_execute_blocks_unsupported_frontmatter_patch_key(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    home = tmp_path / "home"
+    target = home / "SKILL.md"
+    home.mkdir()
+    target.write_text("---\nname: demo\n---\nbody\n", encoding="utf-8")
+    candidate_path = tmp_path / "candidate-patch.json"
+    candidate = make_candidate(candidate_path, executable=True, patch={"name": "bad"})
+    out = tmp_path / "apply-out"
+
+    p = run([
+        "apply",
+        "--candidate", str(candidate_path),
+        "--approve", candidate["approval_id"],
+        "--live-target", str(target),
+        "--hermes-home", str(home),
+        "--out", str(out),
+        "--execute",
+    ], repo)
+
+    assert p.returncode == 2
+    result = json.loads(p.stdout)
+    assert result["status"] == "APPLY_EXECUTION_BLOCKED"
+    assert target.read_text(encoding="utf-8") == "---\nname: demo\n---\nbody\n"
+
+
+def test_apply_execute_preflights_artifact_hardlink_before_live_mutation(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    home = tmp_path / "home"
+    target = home / "SKILL.md"
+    home.mkdir()
+    target.write_text("---\nname: demo\n---\nbody\n", encoding="utf-8")
+    candidate_path = tmp_path / "candidate-patch.json"
+    candidate = make_candidate(candidate_path, executable=True, patch={"description": "new"})
+    out = tmp_path / "apply-out"
+    out.mkdir()
+    os.link(target, out / "apply-plan.json")
+
+    p = run([
+        "apply",
+        "--candidate", str(candidate_path),
+        "--approve", candidate["approval_id"],
+        "--live-target", str(target),
+        "--hermes-home", str(home),
+        "--out", str(out),
+        "--execute",
+    ], repo)
+
+    assert p.returncode == 2
+    result = json.loads(p.stdout)
+    assert result["status"] == "APPLY_ARTIFACT_WRITE_BLOCKED"
+    assert target.read_text(encoding="utf-8") == "---\nname: demo\n---\nbody\n"

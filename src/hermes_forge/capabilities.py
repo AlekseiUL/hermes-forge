@@ -23,7 +23,8 @@ READ_ONLY_ADAPTERS = {
 }
 
 SIDE_EFFECTS = {
-    "edits_hermes_home": False,
+    "edits_hermes_home_by_default": False,
+    "bounded_apply_edits_approved_skill_frontmatter": True,
     "executes_cron": False,
     "executes_plugins": False,
     "executes_mcp_servers": False,
@@ -40,11 +41,12 @@ def build_capabilities() -> dict[str, Any]:
         "schema_version": CAPABILITIES_SCHEMA,
         "package": "hermes-forge",
         "version": __version__,
-        "mvp_boundary": "read-only scan/analyze/propose/eval plus gated candidate-apply validation; no apply executor",
-        "apply_supported": False,
-        "apply_status": "APPLY_BLOCKED_NO_EXECUTOR",
+        "mvp_boundary": "read-only scan/analyze/propose/eval plus human-approved bounded skill-frontmatter executor",
+        "apply_supported": True,
+        "apply_status": "BOUNDED_EXECUTOR_AVAILABLE",
         "legacy_apply_status": "APPLY_DISABLED_IN_MVP",
-        "apply_executor_registered": False,
+        "apply_executor_registered": True,
+        "apply_executors": ["skill_frontmatter_metadata_v1"],
         "adapters": READ_ONLY_ADAPTERS,
         "side_effects": SIDE_EFFECTS,
         "artifact_classes": {
@@ -73,7 +75,9 @@ def run_doctor() -> dict[str, Any]:
         "cwd_label": safe_path_label(Path.cwd()),
         "capabilities_schema": CAPABILITIES_SCHEMA,
         "checks": checks,
-        "apply_enabled": False,
+        "arbitrary_apply_enabled": False,
+        "bounded_apply_enabled": True,
+        "apply_executors": capabilities["apply_executors"],
         "notes": [
             "Doctor is a Forge self-check only.",
             "It does not inspect secrets, execute Hermes services, or mutate Hermes homes.",

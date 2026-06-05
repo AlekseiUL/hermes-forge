@@ -1,5 +1,30 @@
 # Release notes
 
+## v0.7.0 — First bounded executor
+
+Adds the first real human-approved executor without enabling arbitrary patch application.
+
+Included:
+
+- `hermes-forge apply --candidate ... --execute` can run one registered executor: `skill_frontmatter_metadata_v1`;
+- executor requires explicit approval id, explicit live target, `--hermes-home`, and `--out`;
+- executor applies only candidate-provided `frontmatter_patch` to an approved `SKILL.md`;
+- allowed frontmatter keys are `description`, `tags`, `version`, and `category`;
+- skill body, configs, memory, cron, runtime files and arbitrary unified diffs are not executable targets;
+- a local-private backup is created before mutation;
+- preexisting symlink/hardlink output artifacts are blocked;
+- symlinked or hardlinked live targets are blocked;
+- legacy `apply --proposal` remains disabled with `APPLY_DISABLED_IN_MVP`.
+
+Safety boundary:
+
+- no gateway restarts;
+- no cron/plugin/MCP execution;
+- no platform messages;
+- no arbitrary shell execution;
+- no arbitrary diff application;
+- no raw logs, command args, chat IDs, secrets or session transcripts are exported.
+
 ## v0.6.0 — Gated apply skeleton
 
 Adds the first safe `apply` gate for candidate patches without enabling mutation.

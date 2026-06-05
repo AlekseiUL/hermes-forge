@@ -9,7 +9,9 @@ Hermes Forge treats local Hermes data as sensitive and untrusted evidence.
 - Redaction before writing artifacts.
 - Writes only under `--out`.
 - No cron/gateway/MCP/plugin execution.
-- Candidate `apply` validates approval/target/output rules and then blocks before mutation because no executor is registered.
+- Candidate `apply` can run one bounded executor after explicit approval: `skill_frontmatter_metadata_v1`.
+- The executor changes only approved `SKILL.md` frontmatter metadata keys and creates a local-private backup before mutation.
+- Arbitrary diffs, configs, cron, memory, runtime files and skill bodies are not executable targets.
 - Legacy proposal `apply` remains disabled in MVP.
 
 ## Intended-shareable vs local-private artifacts

@@ -8,7 +8,7 @@ Forge helps any Hermes user answer one practical question:
 
 It scans a Hermes home, collects safe evidence, groups weak signals, and produces reviewable improvement opportunities with hypotheses, experiments, success criteria and safe next steps.
 
-It is **not autonomous self-modification**. It does not rewrite your agent by itself. The candidate `apply` path is a gated skeleton: it validates approval/target/output rules and then stops before mutation because no executor is registered in this preview.
+It is **not autonomous self-modification**. It does not rewrite your agent by itself. The candidate `apply` path can run one bounded executor after explicit approval: `skill_frontmatter_metadata_v1`, which changes only approved `SKILL.md` frontmatter metadata after creating a local backup.
 
 ## Why this exists
 
@@ -174,9 +174,9 @@ Diff-preview artifacts include:
 
 `diff-preview` shows what kind of file/change could be prepared next, why, what tests should run, and what rollback would be needed. When the experiment is ready, it also writes a **candidate patch preview**: a unified diff against a virtual review path. That diff is for review only. It has no live target path, changes zero files, and still requires a separate approval/apply gate.
 
-## Apply gate skeleton
+## Apply gate and first executor
 
-Validate a candidate apply request without mutating live files:
+Validate and execute a bounded candidate after explicit approval:
 
 ```bash
 hermes-forge apply \
@@ -184,23 +184,44 @@ hermes-forge apply \
   --approve 'approve:hermes-forge-candidates/opp-0001/skill_frontmatter.md' \
   --live-target ~/.hermes/profiles/operator/skills/example/SKILL.md \
   --hermes-home ~/.hermes \
-  --out ./forge-runs/apply/opp-0001
+  --out ./forge-runs/apply/opp-0001 \
+  --execute
 ```
 
-Apply-gate artifacts include:
+The first registered executor is intentionally narrow:
+
+```text
+skill_frontmatter_metadata_v1
+```
+
+It can only change approved `SKILL.md` frontmatter keys:
+
+- `description`
+- `tags`
+- `version`
+- `category`
+
+It does not edit the skill body, configs, memory, cron, runtime files, or arbitrary unified diffs. If the candidate does not contain `executor_id: skill_frontmatter_metadata_v1` plus an allowed `frontmatter_patch`, Forge stops before mutation.
+
+Apply artifacts include:
 
 - `apply-plan.json`
 - `apply-plan.md`
 - `backup-manifest.json`
 - `apply-result.json`
+- local-private backup under `backups/` when execution happens
 
-Expected candidate apply result in this release:
+Expected bounded executor result when all gates pass and `--execute` is present:
+
+```json
+{"status": "APPLY_EXECUTED", "files_changed": 1, "executor_id": "skill_frontmatter_metadata_v1"}
+```
+
+Expected result for virtual candidates without a registered executor:
 
 ```json
 {"status": "APPLY_BLOCKED_NO_EXECUTOR"}
 ```
-
-That is intentional. The command checks that the candidate is preview-only, the approval id matches, the live target is explicit and under `--hermes-home`, and `--out` is outside the scanned Hermes home. Then it stops because no apply executor exists yet.
 
 ## Low-level example flow
 
@@ -222,7 +243,7 @@ Expected MVP apply result:
 {"status": "APPLY_DISABLED_IN_MVP"}
 ```
 
-`apply` exits non-zero by design.
+Legacy proposal apply still exits non-zero by design. Candidate apply exits zero only when a registered bounded executor actually succeeds.
 
 ## Safety model
 
@@ -234,7 +255,7 @@ Forge does not:
 - execute cron jobs;
 - execute plugins;
 - execute MCP servers;
-- edit skills or memory;
+- edit arbitrary skills, skill bodies or memory;
 - send platform messages;
 - push to GitHub;
 - require network access.
@@ -263,7 +284,7 @@ Implemented:
 - baseline comparison between read-only `improve` runs;
 - safe `experiment` planner/results between opportunity and future diff-preview;
 - preview-only `diff-preview` package with proposed file shapes, risk check, tests, rollback plan and candidate unified diff artifacts;
-- gated apply skeleton that validates candidate approval/target/output rules and then blocks before mutation because no executor is registered;
+- gated apply with first bounded executor: `skill_frontmatter_metadata_v1` for approved `SKILL.md` frontmatter metadata only;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
 - actionable proposal templates with priority, review focus and next checks;
@@ -278,7 +299,8 @@ Known limitations:
 - log taxonomy is heuristic and category-only;
 - eval output is a deterministic plan, not a benchmark runner;
 - candidate diffs use virtual review paths until a concrete live target is approved;
-- candidate `apply` creates only review artifacts and returns non-zero until a separately reviewed executor exists;
+- only one apply executor exists: `skill_frontmatter_metadata_v1`;
+- arbitrary unified diffs, configs, cron, memory, runtime files and skill bodies are not executable targets;
 - legacy proposal `apply` remains disabled in MVP.
 
 ## Canonical source

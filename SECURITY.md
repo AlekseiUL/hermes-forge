@@ -12,9 +12,10 @@ MVP safety boundary:
 
 - scan/analyze/propose/eval are read-only for Hermes inputs;
 - output writes go only under `--out`, and `--out` is blocked when it is inside the scanned Hermes home;
-- candidate `apply` validates approval/target/output rules and then returns `APPLY_BLOCKED_NO_EXECUTOR` until a separately reviewed executor exists;
+- candidate `apply --execute` can run `skill_frontmatter_metadata_v1` only after explicit approval, target scoping and backup creation;
+- `skill_frontmatter_metadata_v1` edits only approved `SKILL.md` frontmatter metadata keys and does not touch skill bodies;
 - legacy proposal `apply` returns `APPLY_DISABLED_IN_MVP`;
 - no gateway restart;
 - no cron execution;
 - no MCP/plugin execution;
-- no live profile edits.
+- no arbitrary live profile edits outside the approved bounded executor.
