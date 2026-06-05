@@ -36,6 +36,11 @@ class Finding:
     owner: str
     auto_apply_forbidden: bool
     next_action: str
+    priority_score: int = 0
+    priority_label: str = "low"
+    priority_reason: str = "not scored"
+    review_focus: str = "evidence quality before change"
+    next_checks: list[str] = field(default_factory=list)
     schema_version: str = "hermes-forge.finding/v1"
 
     def to_dict(self) -> dict[str, Any]:

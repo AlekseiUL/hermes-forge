@@ -17,7 +17,7 @@ SKIP_FILES = {
     "src/hermes_forge/redaction.py",
 }
 
-SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", "build", "dist"}
+SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", ".venv", "build", "dist"}
 
 
 def should_skip(path: Path, root: Path) -> bool:

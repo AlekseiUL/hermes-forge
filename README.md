@@ -123,6 +123,7 @@ Implemented:
 - read-only evidence adapters;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
+- actionable proposal templates with priority, review focus and next checks;
 - privacy scanner;
 - synthetic fixtures and tests;
 - repository-quality GitHub Actions workflow.

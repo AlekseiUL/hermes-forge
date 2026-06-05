@@ -112,8 +112,10 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         md.append("- No findings. NO_CHANGE proposal is recommended.")
     for f in findings:
         md.append(f"## {f.id} / {f.type}")
+        md.append(f"- priority: `{f.priority_label}` / `{f.priority_score}`")
         md.append(f"- severity: `{f.severity}`")
         md.append(f"- evidence: `{', '.join(f.evidence_ids)}`")
+        md.append(f"- review_focus: {f.review_focus}")
         md.append(f"- next_action: {f.next_action}")
         md.append("")
     write_text_under(out / "findings.md", out, "\n".join(md) + "\n")
