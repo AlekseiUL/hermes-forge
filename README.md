@@ -82,6 +82,12 @@ Run Forge against a Hermes home without changing it:
 hermes-forge improve --mode read-only --hermes-home ~/.hermes --all-profiles --out ./forge-runs/latest
 ```
 
+Compare with a previous run when you have one:
+
+```bash
+hermes-forge improve --mode read-only --hermes-home ~/.hermes --all-profiles --baseline ./forge-runs/previous --out ./forge-runs/latest
+```
+
 Open:
 
 ```text
@@ -93,8 +99,10 @@ The report answers:
 - what can be improved;
 - why Forge thinks so;
 - what evidence exists;
+- what state the opportunity is in (`watch_only`, `needs_owner_decision`, `ready_for_experiment`, `ready_for_diff_preview`);
 - what experiment or eval would prove the improvement;
-- what the safest next step is;
+- what typed safe next step follows (`review`, `create_eval`, `open_diff`, `ask_approval`, `no_change`);
+- how this run compares with a previous baseline, if provided;
 - what Forge did not touch.
 
 Artifacts include:
@@ -108,6 +116,7 @@ Artifacts include:
 - `opportunities.json`
 - `proposals.json`
 - `scan-summary.json`
+- `baseline-comparison.json`
 - `report.md`
 - `redaction-report.json`
 
@@ -168,7 +177,8 @@ Implemented:
 - CLI: `doctor`, `capabilities`, `improve`, `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`;
 - read-only evidence adapters;
 - one-shot read-only improvement loop;
-- opportunity reports with hypotheses, experiments, success criteria and safe next steps;
+- opportunity reports with hypotheses, opportunity states, structured eval plans, success criteria and typed safe next steps;
+- baseline comparison between read-only `improve` runs;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
 - actionable proposal templates with priority, review focus and next checks;

@@ -48,6 +48,7 @@ def test_improve_read_only_loop_writes_universal_artifacts_and_no_input_changes(
         "opportunities.json",
         "proposals.json",
         "scan-summary.json",
+        "baseline-comparison.json",
         "redaction-report.json",
         "report.md",
     ]:
@@ -60,7 +61,13 @@ def test_improve_read_only_loop_writes_universal_artifacts_and_no_input_changes(
 
     opportunities = json.loads((out / "opportunities.json").read_text())["opportunities"]
     assert opportunities
-    assert {"owner_role", "reviewer_role", "implementer_role", "approver_role"}.issubset(opportunities[0])
+    first = opportunities[0]
+    assert {"owner_role", "reviewer_role", "implementer_role", "approver_role"}.issubset(first)
+    assert first["opportunity_state"] in {"watch_only", "needs_owner_decision", "ready_for_experiment", "ready_for_diff_preview"}
+    assert first["safe_next_step_type"] in {"review", "create_eval", "open_diff", "ask_approval", "no_change"}
+    assert first["eval_plan"]["schema_version"] == "hermes-forge.eval-plan/v2"
+    assert first["eval_plan"]["writes_live_hermes_home"] is False
+    assert first["eval_plan"]["command"]
     assert "Mike" not in json.dumps(opportunities, ensure_ascii=False)
     assert "Nacho" not in json.dumps(opportunities, ensure_ascii=False)
     assert "Walter" not in json.dumps(opportunities, ensure_ascii=False)
@@ -112,6 +119,36 @@ def test_improve_top_limits_rendered_opportunities_not_total(tmp_path: Path):
     assert f"opportunities_total: `{run_json['opportunities']}`" in report
     assert "opportunities_shown: `1`" in report
     assert report.count("### opp-") == 1
+
+
+def test_improve_baseline_comparison_compares_previous_scan_summary(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    fixture = repo / "tests" / "fixtures" / "hermes_home_minimal"
+    baseline = tmp_path / "baseline"
+    current = tmp_path / "current"
+
+    p1 = run(["improve", "--mode", "read-only", "--hermes-home", str(fixture), "--all-profiles", "--out", str(baseline)], repo)
+    assert p1.returncode == 0, p1.stdout
+    p2 = run([
+        "improve",
+        "--mode", "read-only",
+        "--hermes-home", str(fixture),
+        "--all-profiles",
+        "--baseline", str(baseline),
+        "--out", str(current),
+    ], repo)
+
+    assert p2.returncode == 0, p2.stdout
+    comparison = json.loads((current / "baseline-comparison.json").read_text())
+    assert comparison["status"] == "COMPARED"
+    assert comparison["finding_delta"] == 0
+    assert comparison["evidence_delta"] == 0
+    assert all(value == 0 for value in comparison["opportunity_delta_by_type"].values())
+    summary = json.loads((current / "scan-summary.json").read_text())
+    assert summary["baseline_comparison"]["status"] == "COMPARED"
+    report = (current / "report.md").read_text()
+    assert "## Baseline comparison" in report
+    assert "status: `COMPARED`" in report
 
 
 def test_improve_report_does_not_emit_raw_lines_args_or_token_shapes(tmp_path: Path):

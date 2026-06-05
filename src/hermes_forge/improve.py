@@ -30,6 +30,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Run a secret-safe provider/model audit, then compare before/after Forge findings and Hermes config-check output.",
         "success_criteria": "Provider/model findings drop or are reclassified as accepted risk without exposing secrets.",
         "safe_next_step": "Review provider/model presence by key names only; do not inspect credential values.",
+        "safe_next_step_type": "review",
+        "opportunity_state": "needs_owner_decision",
+        "eval_command": "hermes --profile <profile> config check",
+        "eval_fixture": "synthetic profile config with provider/model key names only",
     },
     "gateway_delivery_gap": {
         "opportunity_type": "observability_gap",
@@ -38,6 +42,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Compare broad gateway markers with strict error-context counts over the same bounded log window.",
         "success_criteria": "The report identifies actionable delivery categories without raw logs or chat IDs.",
         "safe_next_step": "Use strict classifier counts first; avoid gateway restarts until a specific failing path is reproduced.",
+        "safe_next_step_type": "create_eval",
+        "opportunity_state": "ready_for_experiment",
+        "eval_command": "hermes-forge improve --mode read-only --hermes-home <fixture> --out <out>",
+        "eval_fixture": "bounded gateway-log fixture with harmless thread noise plus strict error-context lines",
     },
     "repeated_tool_failure": {
         "opportunity_type": "reliability_risk",
@@ -46,6 +54,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Track categories, exit codes and exception class names, then reproduce one top category with a fixture or bounded smoke command.",
         "success_criteria": "One top failure mode has a reproducible check and a proposed regression test before any code change.",
         "safe_next_step": "Do not patch wrappers yet; create a bounded reproduction or downgrade if evidence remains generic.",
+        "safe_next_step_type": "create_eval",
+        "opportunity_state": "ready_for_experiment",
+        "eval_command": "pytest -q tests/test_log_classifiers.py",
+        "eval_fixture": "synthetic runtime log fixture with category counts and no raw command args",
     },
     "doctor_report_signal": {
         "opportunity_type": "system_health_review",
@@ -54,6 +66,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Import a Doctor summary and compare whether the same area appears in logs, cron, skills or sessions metadata.",
         "success_criteria": "Correlated Doctor findings receive higher confidence; uncorrelated findings are watch-only.",
         "safe_next_step": "Keep Doctor as summary input; do not run repair or restart from Forge.",
+        "safe_next_step_type": "review",
+        "opportunity_state": "watch_only",
+        "eval_command": "hermes-forge improve --mode read-only --doctor-report <report.json> --out <out>",
+        "eval_fixture": "safe Doctor summary fixture without raw diagnostics output",
     },
     "kanban_workflow_signal": {
         "opportunity_type": "workflow_friction",
@@ -62,6 +78,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Review status buckets and compare them with the owner’s intended workflow contract.",
         "success_criteria": "Ambiguous or custom workflow states are either documented or intentionally ignored.",
         "safe_next_step": "Inspect aggregate buckets only; do not read private card bodies from Forge.",
+        "safe_next_step_type": "review",
+        "opportunity_state": "needs_owner_decision",
+        "eval_command": "hermes-forge improve --mode read-only --kanban-db <kanban.db> --out <out>",
+        "eval_fixture": "synthetic Kanban DB with aggregate status buckets only",
     },
     "stale_skill_instruction": {
         "opportunity_type": "skill_improvement",
@@ -70,6 +90,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Patch only missing frontmatter/metadata in a fixture or review branch, then rerun Forge and skill listing checks.",
         "success_criteria": "The stale-skill finding disappears and no skill body/private linked content is exposed.",
         "safe_next_step": "Open frontmatter only; do not rewrite skill instructions unless separate evidence proves behavior drift.",
+        "safe_next_step_type": "open_diff",
+        "opportunity_state": "ready_for_diff_preview",
+        "eval_command": "hermes-forge improve --mode read-only --hermes-home <fixture> --out <out>",
+        "eval_fixture": "synthetic skill fixture with missing/weak frontmatter",
     },
     "cron_metadata_gap": {
         "opportunity_type": "automation_opportunity",
@@ -78,6 +102,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Compare cron metadata before/after adding owner/intent/status conventions in a safe report.",
         "success_criteria": "Cron findings become explainable by status, owner and intended cadence without reading private job payloads.",
         "safe_next_step": "Review metadata only; do not pause, resume, edit or remove cron jobs from Forge.",
+        "safe_next_step_type": "ask_approval",
+        "opportunity_state": "needs_owner_decision",
+        "eval_command": "hermes-forge improve --mode read-only --hermes-home <fixture> --out <out>",
+        "eval_fixture": "synthetic cron metadata fixture without job payload bodies",
     },
     "session_history_signal": {
         "opportunity_type": "memory_hygiene",
@@ -86,6 +114,10 @@ OPPORTUNITY_MAP = {
         "experiment": "Compare recent session volume/topics against skill/docs coverage using metadata only.",
         "success_criteria": "Potential knowledge-capture opportunities are suggested without exporting session content.",
         "safe_next_step": "Use metadata counts only; do not read or publish transcripts.",
+        "safe_next_step_type": "review",
+        "opportunity_state": "watch_only",
+        "eval_command": "hermes-forge improve --mode read-only --hermes-home <fixture> --out <out>",
+        "eval_fixture": "synthetic session metadata fixture with counts only",
     },
 }
 
@@ -96,6 +128,10 @@ DEFAULT_OPPORTUNITY = {
     "experiment": "Collect one more independent signal or rerun the scan after normal system activity.",
     "success_criteria": "The signal either repeats with stronger evidence or is downgraded to watch-only/false-positive.",
     "safe_next_step": "Keep this as a watch item until evidence improves.",
+    "safe_next_step_type": "no_change",
+    "opportunity_state": "watch_only",
+    "eval_command": "hermes-forge improve --mode read-only --hermes-home <fixture> --out <out>",
+    "eval_fixture": "synthetic fixture that can be rerun for baseline comparison",
 }
 
 
@@ -116,6 +152,9 @@ class Opportunity:
     experiment: str
     success_criteria: str
     safe_next_step: str
+    safe_next_step_type: str
+    opportunity_state: str
+    eval_plan: dict[str, Any]
     requires_approval: bool
     apply_forbidden_reason: str
     owner_role: str = "system_owner"
@@ -188,6 +227,17 @@ def opportunities_from_findings(findings: list[Finding]) -> list[Opportunity]:
             experiment=str(tpl["experiment"]),
             success_criteria=str(tpl["success_criteria"]),
             safe_next_step=str(tpl["safe_next_step"]),
+            safe_next_step_type=str(tpl["safe_next_step_type"]),
+            opportunity_state=str(tpl["opportunity_state"]),
+            eval_plan={
+                "schema_version": "hermes-forge.eval-plan/v2",
+                "kind": str(tpl["proposal_type"]),
+                "command": str(tpl["eval_command"]),
+                "fixture": str(tpl["eval_fixture"]),
+                "success_signal": str(tpl["success_criteria"]),
+                "writes_live_hermes_home": False,
+                "requires_approval_before_apply": True,
+            },
             requires_approval=str(tpl["proposal_type"]) in {"repair_plan", "patch_candidate", "config_review"},
             apply_forbidden_reason="Read-only improve mode never applies changes. Generate candidates and ask for approval before modifying a Hermes installation.",
         ))
@@ -212,7 +262,50 @@ def dedup_opportunities(opportunities: list[Opportunity]) -> dict[str, Any]:
     return {"schema_version": "hermes-forge.dedup/v1", "groups": payload_groups}
 
 
-def _render_report(run: dict[str, Any], opportunities: list[Opportunity], dedup: dict[str, Any], evidence_count: int) -> str:
+def _load_baseline_summary(baseline: Path | None) -> dict[str, Any] | None:
+    if baseline is None:
+        return None
+    candidate = baseline / "scan-summary.json" if baseline.is_dir() else baseline
+    if not candidate.exists():
+        return None
+    try:
+        data = json.loads(candidate.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if "run" in data or "opportunity_by_type" in data:
+        return data
+    return None
+
+
+def compare_with_baseline(current_summary: dict[str, Any], baseline_summary: dict[str, Any] | None) -> dict[str, Any]:
+    if not baseline_summary:
+        return {
+            "schema_version": "hermes-forge.baseline-comparison/v1",
+            "status": "NO_BASELINE",
+            "message": "No previous scan-summary.json was provided; keep this run as the baseline for future comparison.",
+            "opportunity_delta_by_type": {},
+            "finding_delta": None,
+            "evidence_delta": None,
+        }
+    current_run = current_summary.get("run", {})
+    baseline_run = baseline_summary.get("run", {})
+    current_types = dict(current_summary.get("opportunity_by_type", {}))
+    baseline_types = dict(baseline_summary.get("opportunity_by_type", {}))
+    keys = sorted(set(current_types) | set(baseline_types))
+    delta = {key: int(current_types.get(key, 0)) - int(baseline_types.get(key, 0)) for key in keys}
+    return {
+        "schema_version": "hermes-forge.baseline-comparison/v1",
+        "status": "COMPARED",
+        "baseline_generated_at": baseline_run.get("generated_at"),
+        "current_generated_at": current_run.get("generated_at"),
+        "opportunity_delta_by_type": delta,
+        "finding_delta": int(current_run.get("findings", 0)) - int(baseline_run.get("findings", 0)),
+        "evidence_delta": int(current_run.get("evidence_items", 0)) - int(baseline_run.get("evidence_items", 0)),
+        "interpretation": "Positive deltas mean more evidence-backed opportunities were observed; they are review signals, not confirmed regressions.",
+    }
+
+
+def _render_report(run: dict[str, Any], opportunities: list[Opportunity], dedup: dict[str, Any], evidence_count: int, baseline_comparison: dict[str, Any]) -> str:
     lines = [
         "# Hermes Forge improvement report",
         "",
@@ -243,18 +336,35 @@ def _render_report(run: dict[str, Any], opportunities: list[Opportunity], dedup:
             lines.extend([
                 f"### {opp.id} / {opp.opportunity_type}",
                 f"- proposal_type: `{opp.proposal_type}`",
+                f"- opportunity_state: `{opp.opportunity_state}`",
+                f"- safe_next_step_type: `{opp.safe_next_step_type}`",
                 f"- priority: `{opp.priority_label}` / `{opp.priority_score}`",
                 f"- evidence: `{', '.join(opp.evidence_ids)}`",
                 f"- hypothesis: {opp.improvement_hypothesis}",
                 f"- experiment: {opp.experiment}",
                 f"- success_criteria: {opp.success_criteria}",
+                f"- eval_command: `{opp.eval_plan['command']}`",
+                f"- eval_fixture: {opp.eval_plan['fixture']}",
                 f"- safe_next_step: {opp.safe_next_step}",
                 "",
             ])
     questions = [o for o in opportunities if o.proposal_type == "question"]
     experiments = [o for o in opportunities if o.proposal_type in {"experiment", "eval_plan"}]
     plans = [o for o in opportunities if o.proposal_type in {"repair_plan", "patch_candidate"}]
-    lines.extend(["## Questions for the system owner"])
+    lines.extend(["## Baseline comparison"])
+    if baseline_comparison.get("status") == "COMPARED":
+        lines.append("- status: `COMPARED`")
+        lines.append(f"- finding_delta: `{baseline_comparison.get('finding_delta')}`")
+        lines.append(f"- evidence_delta: `{baseline_comparison.get('evidence_delta')}`")
+        deltas = baseline_comparison.get("opportunity_delta_by_type", {})
+        if deltas:
+            for key, value in sorted(deltas.items()):
+                lines.append(f"- {key}: `{value:+d}`")
+        else:
+            lines.append("- no opportunity type delta")
+    else:
+        lines.append("- No baseline provided. Keep this run as the baseline for future comparison.")
+    lines.extend(["", "## Questions for the system owner"])
     if questions:
         for opp in questions[:5]:
             lines.append(f"- {opp.id}: Confirm whether `{opp.opportunity_type}` should be treated as an improvement target or accepted risk.")
@@ -305,7 +415,7 @@ def _render_report(run: dict[str, Any], opportunities: list[Opportunity], dedup:
     return "\n".join(lines) + "\n"
 
 
-def run_improve(*, hermes_home: str | None, out: str, profile: str | None = None, all_profiles: bool = False, kanban_db: str | None = None, doctor_report: str | None = None, top: int = 7, mode: str = "read-only") -> dict[str, Any]:
+def run_improve(*, hermes_home: str | None, out: str, profile: str | None = None, all_profiles: bool = False, kanban_db: str | None = None, doctor_report: str | None = None, baseline: str | None = None, top: int = 7, mode: str = "read-only") -> dict[str, Any]:
     if mode != "read-only":
         return {"ok": False, "status": "UNSUPPORTED_MODE", "mode": mode, "supported_modes": ["read-only"]}
     if top < 1:
@@ -363,6 +473,9 @@ def run_improve(*, hermes_home: str | None, out: str, profile: str | None = None
         summary["opportunity_by_type"][opp.opportunity_type] = summary["opportunity_by_type"].get(opp.opportunity_type, 0) + 1
         summary["proposal_by_type"][opp.proposal_type] = summary["proposal_by_type"].get(opp.proposal_type, 0) + 1
 
+    baseline_comparison = compare_with_baseline(summary, _load_baseline_summary(Path(baseline).resolve() if baseline else None))
+    summary["baseline_comparison"] = baseline_comparison
+
     write_text_under(out_dir / "run.json", out_dir, json.dumps(redact_json(run), ensure_ascii=False, indent=2))
     write_text_under(out_dir / "policy.json", out_dir, json.dumps(redact_json(policy), ensure_ascii=False, indent=2))
     write_text_under(out_dir / "inventory.json", out_dir, json.dumps(redact_json(inventory), ensure_ascii=False, indent=2))
@@ -372,6 +485,7 @@ def run_improve(*, hermes_home: str | None, out: str, profile: str | None = None
     write_text_under(out_dir / "opportunities.json", out_dir, json.dumps(redact_json({"schema_version": "hermes-forge.opportunities/v1", "opportunities": [o.to_dict() for o in opportunities]}), ensure_ascii=False, indent=2))
     write_text_under(out_dir / "proposals.json", out_dir, json.dumps(redact_json({"schema_version": "hermes-forge.proposals/v2", "proposals": [o.to_dict() for o in opportunities]}), ensure_ascii=False, indent=2))
     write_text_under(out_dir / "scan-summary.json", out_dir, json.dumps(redact_json(summary), ensure_ascii=False, indent=2))
+    write_text_under(out_dir / "baseline-comparison.json", out_dir, json.dumps(redact_json(baseline_comparison), ensure_ascii=False, indent=2))
     write_text_under(out_dir / "redaction-report.json", out_dir, json.dumps({"schema_version": "hermes-forge.redaction-report/v1", "redaction_enabled": True}, indent=2))
-    write_text_under(out_dir / "report.md", out_dir, _render_report(run, sorted(opportunities, key=lambda o: (-o.priority_score, o.id))[:top], dedup, len(evidence)))
+    write_text_under(out_dir / "report.md", out_dir, _render_report(run, sorted(opportunities, key=lambda o: (-o.priority_score, o.id))[:top], dedup, len(evidence), baseline_comparison))
     return {"ok": True, "status": "OK", "out": safe_path_label(out_dir, home), "summary": summary}

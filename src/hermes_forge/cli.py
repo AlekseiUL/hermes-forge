@@ -171,6 +171,7 @@ def cmd_improve(args: argparse.Namespace) -> int:
         all_profiles=args.all_profiles,
         kanban_db=args.kanban_db,
         doctor_report=args.doctor_report,
+        baseline=args.baseline,
         top=args.top,
         mode=args.mode,
     )
@@ -194,6 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
     improve_group.add_argument("--all-profiles", action="store_true")
     improve.add_argument("--kanban-db", help="Optional Kanban SQLite DB to import as aggregate metadata only.")
     improve.add_argument("--doctor-report", help="Optional existing Hermes/System Doctor report to import as a safe summary only.")
+    improve.add_argument("--baseline", help="Optional previous improve output directory or scan-summary.json for safe delta comparison.")
     improve.add_argument("--top", type=int, default=7, help="Maximum number of opportunities to render in report.md.")
     improve.add_argument("--out", required=True)
     improve.set_defaults(func=cmd_improve)

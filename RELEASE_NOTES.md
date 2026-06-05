@@ -1,5 +1,25 @@
 # Release notes
 
+## v0.2.1 — Improvement states and baseline comparison
+
+Tightens the read-only improvement loop so reports are easier to act on without implying autonomous fixes:
+
+- each opportunity now has `opportunity_state` (`watch_only`, `needs_owner_decision`, `ready_for_experiment`, `ready_for_diff_preview`);
+- each opportunity has `safe_next_step_type` (`review`, `create_eval`, `open_diff`, `ask_approval`, `no_change`);
+- each opportunity carries a structured `eval_plan` with command, fixture, success signal and no-live-write flags;
+- new `--baseline` option for comparing a run against a previous `improve` output directory or `scan-summary.json`;
+- new `baseline-comparison.json` artifact and report section;
+- README documents the comparison workflow and new artifacts.
+
+Safety boundary remains unchanged:
+
+- `apply` is still disabled with `APPLY_DISABLED_IN_MVP`;
+- read-only improve mode writes only under `--out`;
+- `--out` under the scanned Hermes home is blocked;
+- no live Hermes edits;
+- no gateway restarts;
+- no cron/plugin/MCP execution.
+
 ## v0.2.0 — Universal read-only improvement loop
 
 Adds the first product-level auto-improvement loop for Hermes installations:
