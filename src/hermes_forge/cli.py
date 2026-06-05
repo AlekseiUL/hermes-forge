@@ -14,6 +14,7 @@ from hermes_forge.collectors.logs import collect_log_evidence
 from hermes_forge.collectors.profiles import discover_profiles
 from hermes_forge.collectors.sessions import collect_session_evidence
 from hermes_forge.collectors.skills import collect_skill_evidence
+from hermes_forge.experiment import run_experiment
 from hermes_forge.improve import run_improve
 from hermes_forge.models import EvidenceItem, Finding
 from hermes_forge.paths import is_under, resolve_hermes_home, write_text_under
@@ -163,6 +164,17 @@ def cmd_rollback(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_experiment(args: argparse.Namespace) -> int:
+    result = run_experiment(
+        opportunity_source=args.opportunity,
+        opportunity_id=args.id,
+        out=args.out,
+        run=args.run,
+    )
+    print(json.dumps(redact_json(result), ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 2
+
+
 def cmd_improve(args: argparse.Namespace) -> int:
     result = run_improve(
         hermes_home=args.hermes_home,
@@ -199,6 +211,12 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--top", type=int, default=7, help="Maximum number of opportunities to render in report.md.")
     improve.add_argument("--out", required=True)
     improve.set_defaults(func=cmd_improve)
+    experiment = sub.add_parser("experiment", help="Create a safe experiment plan/result for one improvement opportunity. Does not apply changes.")
+    experiment.add_argument("--opportunity", required=True, help="Path to opportunities.json, proposals.json, or a single opportunity JSON object.")
+    experiment.add_argument("--id", required=True, help="Opportunity id, for example opp-0001.")
+    experiment.add_argument("--out", required=True)
+    experiment.add_argument("--run", action="store_true", help="Validate readiness for allowlisted deterministic experiment plans. Never executes arbitrary opportunity commands.")
+    experiment.set_defaults(func=cmd_experiment)
     scan = sub.add_parser("scan")
     scan.add_argument("--hermes-home")
     group = scan.add_mutually_exclusive_group()

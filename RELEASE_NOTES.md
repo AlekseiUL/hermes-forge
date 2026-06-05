@@ -1,5 +1,30 @@
 # Release notes
 
+## v0.3.0 — Safe experiment planner
+
+Adds the next safe step after `improve`: turning one opportunity into a reviewable experiment plan/result without applying changes.
+
+Included:
+
+- new `hermes-forge experiment` command;
+- accepts `opportunities.json`, `proposals.json`, or a single opportunity JSON object;
+- writes `experiment-plan.json`, `experiment-result.json`, `checks.json`, `expected-outcome.md`, and `experiment.md`;
+- experiment statuses: `PLAN_ONLY`, `READY_TO_RUN`, `PASSED`, `FAILED`, `BLOCKED_NEEDS_OWNER_CONTEXT`;
+- `--run` validates readiness only for exact allowlisted deterministic plans and never executes arbitrary commands from opportunity data;
+- owner-decision and diff-preview opportunities are blocked with `BLOCKED_NEEDS_OWNER_CONTEXT` instead of pretending to run;
+- regression tests cover blocked, ready and run paths.
+
+Safety boundary remains unchanged:
+
+- `apply` is still disabled with `APPLY_DISABLED_IN_MVP`;
+- experiment writes only under `--out`;
+- no live Hermes edits;
+- no gateway restarts;
+- no cron/plugin/MCP execution;
+- no arbitrary shell execution from opportunity fields;
+- no false `PASSED` status without a real built-in runner;
+- no raw logs, command args, chat IDs, secrets or session transcripts are exported.
+
 ## v0.2.1 — Improvement states and baseline comparison
 
 Tightens the read-only improvement loop so reports are easier to act on without implying autonomous fixes:

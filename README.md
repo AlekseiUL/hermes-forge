@@ -120,6 +120,38 @@ Artifacts include:
 - `report.md`
 - `redaction-report.json`
 
+## Experiment planner
+
+Turn one opportunity into a safe experiment plan/result without applying changes:
+
+```bash
+hermes-forge experiment --opportunity ./forge-runs/latest/opportunities.json --id opp-0001 --out ./forge-runs/experiments/opp-0001
+```
+
+For allowlisted deterministic plans only, request readiness validation:
+
+```bash
+hermes-forge experiment --opportunity ./forge-runs/latest/opportunities.json --id opp-0001 --out ./forge-runs/experiments/opp-0001 --run
+```
+
+Experiment artifacts include:
+
+- `experiment-plan.json`
+- `experiment-result.json`
+- `checks.json`
+- `expected-outcome.md`
+- `experiment.md`
+
+Experiment statuses:
+
+- `PLAN_ONLY`
+- `READY_TO_RUN`
+- `PASSED`
+- `FAILED`
+- `BLOCKED_NEEDS_OWNER_CONTEXT`
+
+`experiment` never executes arbitrary commands from an opportunity. In this release `--run` validates readiness for exact allowlisted plans; it does not shell out to the documented eval command and does not mark experiments as passed.
+
 ## Low-level example flow
 
 These commands use synthetic fixtures from this source checkout:
@@ -174,11 +206,12 @@ See [`examples/`](examples/) for source-checkout examples:
 
 Implemented:
 
-- CLI: `doctor`, `capabilities`, `improve`, `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`;
+- CLI: `doctor`, `capabilities`, `improve`, `experiment`, `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`;
 - read-only evidence adapters;
 - one-shot read-only improvement loop;
 - opportunity reports with hypotheses, opportunity states, structured eval plans, success criteria and typed safe next steps;
 - baseline comparison between read-only `improve` runs;
+- safe `experiment` planner/results between opportunity and future diff-preview;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
 - actionable proposal templates with priority, review focus and next checks;
