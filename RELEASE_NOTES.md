@@ -1,5 +1,29 @@
 # Release notes
 
+## v0.5.0 — Candidate patch preview
+
+Adds the next safe step inside `diff-preview`: a review-only candidate unified diff.
+
+Included:
+
+- `diff-preview` now writes `candidate-patch.json`, `candidate.diff`, and `approval-checklist.md`;
+- ready experiments produce a unified diff against a virtual candidate path such as `hermes-forge-candidates/<opportunity>/<target>.md`;
+- blocked/plan-only experiments produce `NO_CANDIDATE_PATCH` instead of a misleading empty change;
+- candidate patch artifacts keep `files_changed: 0`, `apply_enabled: false`, and `live_path: null`;
+- Markdown/diff artifacts are rendered from redacted payloads only;
+- README documents the candidate patch boundary.
+
+Safety boundary remains unchanged:
+
+- `apply` is still disabled with `APPLY_DISABLED_IN_MVP`;
+- candidate diffs are review artifacts only;
+- no live Hermes edits;
+- no patch application;
+- no gateway restarts;
+- no cron/plugin/MCP execution;
+- no platform messages;
+- no raw logs, command args, chat IDs, secrets or session transcripts are exported.
+
 ## v0.4.0 — Preview-only diff package
 
 Adds the next safe step after `experiment`: creating a reviewable diff-preview package without changing files.

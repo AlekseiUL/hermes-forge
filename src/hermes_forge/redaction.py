@@ -13,7 +13,7 @@ TOKEN_PATTERNS = [
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S),
 ]
 SECRET_ASSIGNMENT = re.compile(r"(?i)(api[_-]?key|token|secret|password|cookie)\s*[:=]\s*[^\s]+")
-USER_PATH = re.compile(r"/Users/[^/\s]+")
+SENSITIVE_ABSOLUTE_PATH = re.compile(r"/(?:Users/[^/\s]+|private/var/[^\s]+|var/folders/[^\s]+|tmp/[^\s]+)")
 
 
 def redact_text(text: str) -> str:
@@ -21,7 +21,7 @@ def redact_text(text: str) -> str:
     for pattern in TOKEN_PATTERNS:
         out = pattern.sub("[REDACTED]", out)
     out = SECRET_ASSIGNMENT.sub(lambda m: f"{m.group(1)}=[REDACTED]", out)
-    out = USER_PATH.sub("[REDACTED_PATH]", out)
+    out = SENSITIVE_ABSOLUTE_PATH.sub("[REDACTED_PATH]", out)
     return out
 
 
@@ -34,7 +34,7 @@ def safe_path_label(path: str | Path, hermes_home: str | Path | None = None) -> 
             return "<hermes-home>"
         if text.startswith(home + "/"):
             return "<hermes-home>" + text[len(home):]
-    return USER_PATH.sub("[REDACTED_PATH]", text)
+    return SENSITIVE_ABSOLUTE_PATH.sub("[REDACTED_PATH]", text)
 
 
 def redact_json(obj: Any) -> Any:

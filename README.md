@@ -168,8 +168,11 @@ Diff-preview artifacts include:
 - `risk-check.json`
 - `rollback-plan.md`
 - `tests-to-run.md`
+- `candidate-patch.json`
+- `candidate.diff`
+- `approval-checklist.md`
 
-`diff-preview` shows what kind of file/change could be prepared next, why, what tests should run, and what rollback would be needed. It does not edit files and does not apply patches.
+`diff-preview` shows what kind of file/change could be prepared next, why, what tests should run, and what rollback would be needed. When the experiment is ready, it also writes a **candidate patch preview**: a unified diff against a virtual review path. That diff is for review only. It has no live target path, changes zero files, and still requires a separate approval/apply gate.
 
 ## Low-level example flow
 
@@ -231,7 +234,7 @@ Implemented:
 - opportunity reports with hypotheses, opportunity states, structured eval plans, success criteria and typed safe next steps;
 - baseline comparison between read-only `improve` runs;
 - safe `experiment` planner/results between opportunity and future diff-preview;
-- preview-only `diff-preview` package with proposed file shapes, risk check, tests and rollback plan;
+- preview-only `diff-preview` package with proposed file shapes, risk check, tests, rollback plan and candidate unified diff artifacts;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
 - actionable proposal templates with priority, review focus and next checks;
@@ -245,6 +248,7 @@ Known limitations:
 - Kanban support is optional and metadata-only;
 - log taxonomy is heuristic and category-only;
 - eval output is a deterministic plan, not a benchmark runner;
+- candidate diffs use virtual review paths until a concrete live target is approved;
 - `apply` is disabled in MVP.
 
 ## Canonical source

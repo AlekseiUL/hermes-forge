@@ -26,7 +26,7 @@ def test_diff_preview_from_blocked_experiment_writes_preview_artifacts(tmp_path:
     p3 = run(["diff-preview", "--experiment", str(experiment_out), "--hermes-home", str(fixture), "--out", str(diff_out)], repo)
 
     assert p3.returncode == 0, p3.stdout
-    for name in ["diff-preview.json", "diff-preview.md", "proposed-files.json", "risk-check.json", "rollback-plan.md", "tests-to-run.md"]:
+    for name in ["diff-preview.json", "diff-preview.md", "proposed-files.json", "risk-check.json", "rollback-plan.md", "tests-to-run.md", "candidate-patch.json", "candidate.diff", "approval-checklist.md"]:
         assert (diff_out / name).exists(), name
     preview = json.loads((diff_out / "diff-preview.json").read_text())
     assert preview["status"] == "BLOCKED_NEEDS_OWNER_CONTEXT"
@@ -79,6 +79,19 @@ def test_diff_preview_preview_only_for_ready_experiment_result(tmp_path: Path):
     assert proposed[0]["live_path"] is None
     assert proposed[0]["path_policy"] == "review-selected-skill-only"
     assert "No rollback is needed for this preview" in (out / "rollback-plan.md").read_text()
+    candidate = json.loads((out / "candidate-patch.json").read_text())
+    assert candidate["status"] == "CANDIDATE_PATCH_PREVIEW_ONLY"
+    assert candidate["files_changed"] == 0
+    assert candidate["apply_enabled"] is False
+    assert candidate["live_path"] is None
+    assert candidate["virtual_path"].startswith("hermes-forge-candidates/opp-ready/")
+    patch = (out / "candidate.diff").read_text()
+    assert "--- a/hermes-forge-candidates/opp-ready/skill_frontmatter.md" in patch
+    assert "+++ b/hermes-forge-candidates/opp-ready/skill_frontmatter.md" in patch
+    assert "+- live_path: null" in patch
+    assert "Skill frontmatter can be cleaned" in patch
+    checklist = (out / "approval-checklist.md").read_text()
+    assert "apply command invoked separately" in checklist
 
 
 def test_diff_preview_redacts_markdown_as_well_as_json(tmp_path: Path):
@@ -118,6 +131,9 @@ def test_diff_preview_redacts_markdown_as_well_as_json(tmp_path: Path):
     assert secret_value not in combined
     assert user_path not in combined
     assert "[REDACTED]" in combined
+    candidate = json.loads((out / "candidate-patch.json").read_text())
+    assert secret_value not in candidate.get("unified_diff", "")
+    assert user_path not in candidate.get("unified_diff", "")
 
 
 def test_diff_preview_blocks_out_under_hermes_home(tmp_path: Path):
@@ -147,3 +163,30 @@ def test_diff_preview_invalid_experiment_fails(tmp_path: Path):
 
     assert p.returncode == 2
     assert "INVALID_EXPERIMENT" in p.stdout
+
+
+def test_diff_preview_candidate_patch_not_created_for_blocked_state(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    hermes_home = tmp_path / "home"
+    experiment = tmp_path / "experiment"
+    hermes_home.mkdir()
+    experiment.mkdir()
+    (experiment / "experiment-plan.json").write_text(json.dumps({
+        "opportunity_id": "opp-blocked",
+        "opportunity_type": "config_review",
+        "hypothesis": "Needs owner context first.",
+    }), encoding="utf-8")
+    (experiment / "experiment-result.json").write_text(json.dumps({
+        "status": "BLOCKED_NEEDS_OWNER_CONTEXT",
+        "next_state": "needs_owner_decision",
+        "apply_enabled": False,
+    }), encoding="utf-8")
+    out = tmp_path / "diff"
+
+    p = run(["diff-preview", "--experiment", str(experiment), "--hermes-home", str(hermes_home), "--out", str(out)], repo)
+
+    assert p.returncode == 0, p.stdout
+    candidate = json.loads((out / "candidate-patch.json").read_text())
+    assert candidate["status"] == "NO_CANDIDATE_PATCH"
+    assert candidate["candidate_files"] == []
+    assert (out / "candidate.diff").read_text() == ""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,7 @@ from hermes_forge.redaction import redact_json, safe_path_label
 
 DIFF_PREVIEW_SCHEMA = "hermes-forge.diff-preview/v1"
 RISK_SCHEMA = "hermes-forge.diff-risk/v1"
+CANDIDATE_PATCH_SCHEMA = "hermes-forge.candidate-patch/v1"
 
 DIFFABLE_EXPERIMENT_STATUSES = {"READY_TO_RUN", "PASSED"}
 DIFFABLE_NEXT_STATES = {"ready_for_experiment", "ready_for_diff_preview"}
@@ -59,7 +61,7 @@ def classify_diff_preview(plan: dict[str, Any], result: dict[str, Any]) -> tuple
     if status not in DIFFABLE_EXPERIMENT_STATUSES or next_state not in DIFFABLE_NEXT_STATES:
         return "BLOCKED_NOT_READY", "Experiment result is not ready for diff preview.", "blocked"
     preview_type = DIFF_PREVIEW_TYPES.get(opportunity_type, "review_note_preview")
-    return "PREVIEW_ONLY", "Diff preview is safe to draft, but no files are changed in v0.4.0.", preview_type
+    return "PREVIEW_ONLY", "Diff preview is safe to draft, but no live files are changed.", preview_type
 
 
 def _suggested_targets(plan: dict[str, Any], preview_type: str) -> list[dict[str, Any]]:
@@ -76,6 +78,102 @@ def _suggested_targets(plan: dict[str, Any], preview_type: str) -> list[dict[str
         return [{"target_kind": "automation_metadata", "path_policy": "review-only-no-cron-edit", "change_kind": "metadata_convention", "live_path": None}]
     return [{"target_kind": opportunity_type, "path_policy": "review-only", "change_kind": "review_note", "live_path": None}]
 
+
+
+
+def _safe_slug(value: object, fallback: str = "candidate") -> str:
+    raw = str(value or fallback).lower()
+    out = []
+    for ch in raw:
+        if ch.isalnum() or ch in {"-", "_"}:
+            out.append(ch)
+        else:
+            out.append("-")
+    slug = "".join(out).strip("-")[:64]
+    return slug or fallback
+
+
+def _candidate_review_note(payload: dict[str, Any], risk: dict[str, Any], tests: list[str]) -> str:
+    proposed = payload.get("proposed_files", [])
+    target = proposed[0] if proposed else {"target_kind": "review_note", "change_kind": "review_note", "path_policy": "review-only"}
+    lines = [
+        "# Hermes Forge candidate review note",
+        "",
+        "This is a candidate patch preview only. It is not applied to Hermes and has no live target path.",
+        "",
+        "## Candidate",
+        f"- opportunity_id: {payload.get('opportunity_id')}",
+        f"- opportunity_type: {payload.get('opportunity_type')}",
+        f"- target_kind: {target.get('target_kind')}",
+        f"- change_kind: {target.get('change_kind')}",
+        f"- path_policy: {target.get('path_policy')}",
+        "- live_path: null",
+        "",
+        "## Hypothesis",
+        str(payload.get("rationale") or "No hypothesis provided."),
+        "",
+        "## Required gate before any real apply",
+        "- owner approval for a concrete live path;",
+        "- backup/checkpoint before edit;",
+        "- tests pass;",
+        "- privacy scan passes;",
+        "- rollback plan confirmed.",
+        "",
+        "## Tests to run",
+    ]
+    lines.extend(f"- {test}" for test in tests)
+    lines.extend([
+        "",
+        "## Risk",
+        f"- risk_level: {risk.get('risk_level')}",
+        f"- reason: {risk.get('reason')}",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def build_candidate_patch(payload: dict[str, Any], risk: dict[str, Any], tests: list[str]) -> dict[str, Any]:
+    if payload.get("status") != "PREVIEW_ONLY" or not payload.get("proposed_files"):
+        return {
+            "schema_version": CANDIDATE_PATCH_SCHEMA,
+            "status": "NO_CANDIDATE_PATCH",
+            "reason": "Candidate patch preview is generated only for PREVIEW_ONLY experiments with proposed target shape.",
+            "files_changed": 0,
+            "apply_enabled": False,
+            "candidate_files": [],
+        }
+    opportunity_id = _safe_slug(payload.get("opportunity_id"), "opportunity")
+    target = payload["proposed_files"][0]
+    target_kind = _safe_slug(target.get("target_kind"), "target")
+    virtual_path = f"hermes-forge-candidates/{opportunity_id}/{target_kind}.md"
+    new_text = _candidate_review_note(payload, risk, tests)
+    diff_lines = list(difflib.unified_diff(
+        [],
+        new_text.splitlines(),
+        fromfile=f"a/{virtual_path}",
+        tofile=f"b/{virtual_path}",
+        lineterm="",
+    ))
+    diff = "\n".join(diff_lines) + ("\n" if diff_lines else "")
+    return {
+        "schema_version": CANDIDATE_PATCH_SCHEMA,
+        "status": "CANDIDATE_PATCH_PREVIEW_ONLY",
+        "reason": "Unified diff is a review artifact against a virtual candidate path. It is not applied and has no live target path.",
+        "files_changed": 0,
+        "apply_enabled": False,
+        "requires_approval_before_apply": True,
+        "virtual_path": virtual_path,
+        "live_path": None,
+        "candidate_files": [{
+            "virtual_path": virtual_path,
+            "live_path": None,
+            "target_kind": target.get("target_kind"),
+            "change_kind": target.get("change_kind"),
+            "path_policy": target.get("path_policy"),
+            "rollback": "Delete the candidate artifact; no live file was changed.",
+        }],
+        "unified_diff": diff,
+    }
 
 def _render_diff_preview_md(payload: dict[str, Any], risk: dict[str, Any], rollback: str, tests: list[str]) -> str:
     lines = [
@@ -182,7 +280,23 @@ def run_diff_preview(*, experiment: str, out: str, hermes_home: str | None = Non
     write_text_under(out_dir / "diff-preview.json", out_dir, json.dumps(redacted_payload, ensure_ascii=False, indent=2))
     write_text_under(out_dir / "proposed-files.json", out_dir, json.dumps(redact_json({"schema_version": "hermes-forge.proposed-files/v1", "files": proposed_files}), ensure_ascii=False, indent=2))
     write_text_under(out_dir / "risk-check.json", out_dir, json.dumps(redacted_risk, ensure_ascii=False, indent=2))
+    candidate_patch = redact_json(build_candidate_patch(redacted_payload, redacted_risk, tests_to_run))
+    write_text_under(out_dir / "candidate-patch.json", out_dir, json.dumps(candidate_patch, ensure_ascii=False, indent=2))
+    write_text_under(out_dir / "candidate.diff", out_dir, str(candidate_patch.get("unified_diff", "")))
+    checklist = [
+        "# Approval checklist",
+        "",
+        "This checklist is for a future apply gate. The current command changed zero live files.",
+        "",
+        "- [ ] concrete live target path selected by owner/reviewer",
+        "- [ ] backup/checkpoint created before edit",
+        "- [ ] tests listed in tests-to-run.md pass",
+        "- [ ] privacy scan passes",
+        "- [ ] rollback plan accepted",
+        "- [ ] apply command invoked separately with explicit approval",
+    ]
+    write_text_under(out_dir / "approval-checklist.md", out_dir, "\n".join(checklist) + "\n")
     write_text_under(out_dir / "tests-to-run.md", out_dir, "# Tests to run\n\n" + "\n".join(f"- `{test}`" for test in tests_to_run) + "\n")
     write_text_under(out_dir / "rollback-plan.md", out_dir, "# Rollback plan\n\n" + rollback + "\n")
     write_text_under(out_dir / "diff-preview.md", out_dir, _render_diff_preview_md(redacted_payload, redacted_risk, rollback, tests_to_run))
-    return {"ok": True, "status": status, "out": safe_path_label(out_dir), "summary": {"opportunity_id": plan.get("opportunity_id"), "preview_type": preview_type, "files_changed": 0, "apply_enabled": False}}
+    return {"ok": True, "status": status, "out": safe_path_label(out_dir), "summary": {"opportunity_id": plan.get("opportunity_id"), "preview_type": preview_type, "files_changed": 0, "apply_enabled": False, "candidate_patch_status": candidate_patch.get("status")}}
