@@ -14,6 +14,7 @@ from hermes_forge.collectors.logs import collect_log_evidence
 from hermes_forge.collectors.profiles import discover_profiles
 from hermes_forge.collectors.sessions import collect_session_evidence
 from hermes_forge.collectors.skills import collect_skill_evidence
+from hermes_forge.diff_preview import run_diff_preview
 from hermes_forge.experiment import run_experiment
 from hermes_forge.improve import run_improve
 from hermes_forge.models import EvidenceItem, Finding
@@ -164,6 +165,16 @@ def cmd_rollback(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_diff_preview(args: argparse.Namespace) -> int:
+    result = run_diff_preview(
+        experiment=args.experiment,
+        out=args.out,
+        hermes_home=args.hermes_home,
+    )
+    print(json.dumps(redact_json(result), ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 2
+
+
 def cmd_experiment(args: argparse.Namespace) -> int:
     result = run_experiment(
         opportunity_source=args.opportunity,
@@ -217,6 +228,11 @@ def build_parser() -> argparse.ArgumentParser:
     experiment.add_argument("--out", required=True)
     experiment.add_argument("--run", action="store_true", help="Validate readiness for allowlisted deterministic experiment plans. Never executes arbitrary opportunity commands.")
     experiment.set_defaults(func=cmd_experiment)
+    diff_preview = sub.add_parser("diff-preview", help="Create a preview-only change package from an experiment result. Does not edit files.")
+    diff_preview.add_argument("--experiment", required=True, help="Experiment output directory, experiment-result.json, or experiment-plan.json.")
+    diff_preview.add_argument("--hermes-home", required=True, help="Scanned Hermes home. Used only to block --out inside live Hermes inputs.")
+    diff_preview.add_argument("--out", required=True)
+    diff_preview.set_defaults(func=cmd_diff_preview)
     scan = sub.add_parser("scan")
     scan.add_argument("--hermes-home")
     group = scan.add_mutually_exclusive_group()

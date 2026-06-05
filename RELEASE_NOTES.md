@@ -1,5 +1,30 @@
 # Release notes
 
+## v0.4.0 — Preview-only diff package
+
+Adds the next safe step after `experiment`: creating a reviewable diff-preview package without changing files.
+
+Included:
+
+- new `hermes-forge diff-preview` command;
+- accepts an experiment output directory, `experiment-result.json`, or `experiment-plan.json`;
+- writes `diff-preview.json`, `diff-preview.md`, `proposed-files.json`, `risk-check.json`, `rollback-plan.md`, and `tests-to-run.md`;
+- classifies blocked experiments as `BLOCKED_NEEDS_OWNER_CONTEXT`, plan-only experiments as `PLAN_ONLY`, and ready experiments as `PREVIEW_ONLY`;
+- proposed files use target kinds and path policies only, not live writable paths;
+- rollback and tests are written as review plans, not executed.
+
+Safety boundary remains unchanged:
+
+- `apply` is still disabled with `APPLY_DISABLED_IN_MVP`;
+- diff-preview writes only under `--out`;
+- `--out` inside the scanned Hermes home is blocked;
+- no live Hermes edits;
+- no patch application;
+- no gateway restarts;
+- no cron/plugin/MCP execution;
+- no platform messages;
+- no raw logs, command args, chat IDs, secrets or session transcripts are exported.
+
 ## v0.3.0 — Safe experiment planner
 
 Adds the next safe step after `improve`: turning one opportunity into a reviewable experiment plan/result without applying changes.

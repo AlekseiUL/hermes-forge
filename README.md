@@ -152,6 +152,25 @@ Experiment statuses:
 
 `experiment` never executes arbitrary commands from an opportunity. In this release `--run` validates readiness for exact allowlisted plans; it does not shell out to the documented eval command and does not mark experiments as passed.
 
+## Diff preview
+
+Turn an experiment result into a preview-only change package:
+
+```bash
+hermes-forge diff-preview --experiment ./forge-runs/experiments/opp-0001 --hermes-home ~/.hermes --out ./forge-runs/diff-preview/opp-0001
+```
+
+Diff-preview artifacts include:
+
+- `diff-preview.json`
+- `diff-preview.md`
+- `proposed-files.json`
+- `risk-check.json`
+- `rollback-plan.md`
+- `tests-to-run.md`
+
+`diff-preview` shows what kind of file/change could be prepared next, why, what tests should run, and what rollback would be needed. It does not edit files and does not apply patches.
+
 ## Low-level example flow
 
 These commands use synthetic fixtures from this source checkout:
@@ -206,12 +225,13 @@ See [`examples/`](examples/) for source-checkout examples:
 
 Implemented:
 
-- CLI: `doctor`, `capabilities`, `improve`, `experiment`, `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`;
+- CLI: `doctor`, `capabilities`, `improve`, `experiment`, `diff-preview`, `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`;
 - read-only evidence adapters;
 - one-shot read-only improvement loop;
 - opportunity reports with hypotheses, opportunity states, structured eval plans, success criteria and typed safe next steps;
 - baseline comparison between read-only `improve` runs;
 - safe `experiment` planner/results between opportunity and future diff-preview;
+- preview-only `diff-preview` package with proposed file shapes, risk check, tests and rollback plan;
 - first-class `NO_CHANGE` proposals;
 - deterministic eval plans;
 - actionable proposal templates with priority, review focus and next checks;
