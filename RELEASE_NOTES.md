@@ -1,5 +1,22 @@
 # Release notes
 
+## v0.1.2 — Safe log classifiers
+
+Adds safer and more actionable runtime-log evidence:
+
+- gateway delivery classifier with strict error-context counts;
+- tool/runtime classifier with category counts, exit codes, exception class names and safe tool labels;
+- `unknown/no_explicit_tool_label` when tool attribution is not explicit instead of guessing;
+- regression tests proving raw log lines, command arguments, paths, chat IDs and token-shaped strings are not emitted;
+- source/output privacy scans remain clean.
+
+Safety boundary remains unchanged:
+
+- `apply` is still disabled with `APPLY_DISABLED_IN_MVP`;
+- no live Hermes edits;
+- no gateway restarts;
+- no cron/plugin/MCP execution.
+
 ## v0.1.1 — Actionability layer
 
 Adds more useful improvement proposals:
