@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from hermes_forge import __version__
+from hermes_forge.capabilities import build_capabilities, dumps, run_doctor
 from hermes_forge.analysis import analyze_evidence
 from hermes_forge.collectors.cron import collect_cron_evidence
 from hermes_forge.collectors.doctor import collect_doctor_report_evidence
@@ -34,6 +35,16 @@ def _load_ledger(path: Path) -> list[EvidenceItem]:
 def _bump_next_id(next_id: int, evidence: list[EvidenceItem], batch: list[EvidenceItem]) -> int:
     evidence.extend(batch)
     return next_id + len(batch)
+
+
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    print(dumps(build_capabilities()))
+    return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    print(dumps(run_doctor()))
+    return 0
 
 
 def cmd_scan(args: argparse.Namespace) -> int:
@@ -153,6 +164,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Hermes Forge: local-first improvement control plane for Hermes Agent")
     parser.add_argument("--version", action="version", version=f"hermes-forge {__version__}")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    doctor = sub.add_parser("doctor", help="Run Forge self-check. Does not inspect or mutate a live Hermes home.")
+    doctor.set_defaults(func=cmd_doctor)
+    capabilities = sub.add_parser("capabilities", help="Print machine-readable Forge capability and side-effect report.")
+    capabilities.set_defaults(func=cmd_capabilities)
     scan = sub.add_parser("scan")
     scan.add_argument("--hermes-home")
     group = scan.add_mutually_exclusive_group()

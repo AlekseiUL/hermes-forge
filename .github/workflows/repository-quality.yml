@@ -1,0 +1,87 @@
+name: repository-quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dev dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Compile
+        run: python -m compileall -q src tests scripts
+      - name: Test
+        run: python -m pytest -q
+      - name: Source privacy scan
+        run: python scripts/privacy_scan.py .
+      - name: Build package
+        run: python -m build
+      - name: Check sdist contents
+        run: |
+          python - <<'PY'
+          import glob, tarfile, sys
+          required = [
+              'docs/safety-model.md',
+              'docs/artifact-schema.md',
+              'examples/README.md',
+              'tests/fixtures/hermes_home_minimal/sessions.db',
+              'tests/fixtures/kanban/kanban.db',
+              'scripts/privacy_scan.py',
+          ]
+          sdist = glob.glob('dist/*.tar.gz')[0]
+          with tarfile.open(sdist) as tf:
+              names = set(tf.getnames())
+          base = next(iter(names)).split('/')[0]
+          missing = [p for p in required if f'{base}/{p}' not in names]
+          print({'sdist': sdist, 'missing': missing})
+          sys.exit(1 if missing else 0)
+          PY
+      - name: Wheel smoke
+        run: |
+          tmp=$(mktemp -d)
+          python -m venv "$tmp/venv"
+          "$tmp/venv/bin/python" -m pip install dist/*.whl
+          "$tmp/venv/bin/hermes-forge" --version
+          "$tmp/venv/bin/hermes-forge" --help
+          "$tmp/venv/bin/hermes-forge" doctor
+          "$tmp/venv/bin/hermes-forge" capabilities
+          "$tmp/venv/bin/hermes-forge" scan --hermes-home tests/fixtures/hermes_home_minimal --all-profiles --kanban-db tests/fixtures/kanban/kanban.db --doctor-report tests/fixtures/doctor/report.json --out "$tmp/run"
+          "$tmp/venv/bin/hermes-forge" analyze --scan "$tmp/run" --out "$tmp/run/analysis"
+          "$tmp/venv/bin/hermes-forge" propose --analysis "$tmp/run/analysis" --out "$tmp/run/proposals"
+          "$tmp/venv/bin/hermes-forge" eval --proposal "$tmp/run/proposals/prop-0001/proposal.json" --out "$tmp/run/evals/prop-0001"
+          set +e
+          apply_out=$("$tmp/venv/bin/hermes-forge" apply --proposal "$tmp/run/proposals/prop-0001/proposal.json" 2>&1)
+          code=$?
+          set -e
+          echo "$apply_out"
+          test "$code" -eq 2
+          echo "$apply_out" | grep APPLY_DISABLED_IN_MVP
+          python scripts/privacy_scan.py "$tmp/run"
+      - name: Dist privacy scan
+        run: |
+          tmp=$(mktemp -d)
+          python - <<'PY'
+          import glob, pathlib, tarfile, zipfile
+          out = pathlib.Path('dist-scan')
+          out.mkdir()
+          for path in glob.glob('dist/*'):
+              p = pathlib.Path(path)
+              target = out / p.name.replace('.', '_')
+              target.mkdir()
+              if p.suffix == '.whl':
+                  with zipfile.ZipFile(p) as zf: zf.extractall(target)
+              elif p.name.endswith('.tar.gz'):
+                  with tarfile.open(p) as tf: tf.extractall(target)
+          PY
+          python scripts/privacy_scan.py dist-scan

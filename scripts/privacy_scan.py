@@ -21,14 +21,16 @@ SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", "build", "dist"}
 
 
 def should_skip(path: Path, root: Path) -> bool:
-    if any(part in SKIP_DIRS or part.endswith(".egg-info") for part in path.parts):
+    explicit_root = root.resolve()
+    skip_dirs = SKIP_DIRS - {root.name} if explicit_root == root.resolve() and root.name in {"build", "dist"} else SKIP_DIRS
+    if any(part in skip_dirs or part.endswith(".egg-info") for part in path.parts):
         return True
     if root.is_dir():
         try:
             rel = str(path.relative_to(root))
         except ValueError:
             rel = str(path)
-        return rel in SKIP_FILES
+        return rel in SKIP_FILES or rel.endswith("/scripts/privacy_scan.py") or rel.endswith("/src/hermes_forge/redaction.py") or rel.endswith("/hermes_forge/redaction.py")
     return False
 
 

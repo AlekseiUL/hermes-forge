@@ -2,30 +2,61 @@
 
 Local-first improvement control plane for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
-Hermes already has skills, memory, sessions, cron and profiles. Forge looks at how those pieces actually perform, collects evidence from real work, classifies repeated failures/corrections, and generates reviewable proposals with eval and rollback plans.
+Forge helps a Hermes user answer one practical question:
 
-MVP boundary: **read-only scan/analyze/propose/eval**. `apply` is intentionally disabled.
+> What should I improve in my agent setup, why, and how do I review it safely?
 
-Not autonomous self-modification. Not recursive AGI. Not an official Anthropic or Hermes Agent project.
+It scans a Hermes home, collects safe evidence, groups weak signals, and produces reviewable improvement proposals with eval and rollback plans.
 
-## Why
+It is **not autonomous self-modification**. It does not rewrite your agent by itself. `apply` is intentionally disabled in this preview.
 
-The useful lesson from the Anthropic self-improvement discussion is not hype. It is the bottleneck shift: agents can generate more changes than humans can review calmly, so improvement needs evidence, evals, review gates and rollback.
-
-Forge turns that into a Hermes-native loop:
+## Operating flow
 
 ```text
-Hermes work -> evidence -> taxonomy -> proposal -> eval plan -> review -> apply gate -> rollback
+scan -> evidence -> findings -> proposal -> eval -> review -> apply gate -> rollback plan
 ```
+
+## Who is this for?
+
+Hermes Forge is for:
+
+- Hermes Agent users with multiple profiles, skills, cron jobs or runtime logs;
+- developers building safer agent workflows;
+- teams that want evidence before changing skills, routing, tasks or automations.
+
+It is not:
+
+- an official Hermes Agent project;
+- an Anthropic project;
+- a background agent that edits itself automatically;
+- a security scanner or secret collector.
+
+## What it can improve today
+
+Forge currently finds improvement candidates from:
+
+- profile inventory;
+- skill frontmatter metadata;
+- cron metadata;
+- bounded log categories;
+- session DB aggregate metadata;
+- optional Kanban SQLite aggregate metadata;
+- optional existing Doctor report summaries.
+
+Then it creates proposals that say: what looks weak, what evidence supports it, how to evaluate a change, and why the change must not be applied automatically.
 
 ## Quick start from source
 
 ```bash
 python -m pip install -e ".[dev]"
 python -m pytest -q
+hermes-forge doctor
+hermes-forge capabilities
 ```
 
-## Commands
+## Example flow
+
+These commands use synthetic fixtures from this source checkout:
 
 ```bash
 hermes-forge scan --hermes-home tests/fixtures/hermes_home_minimal --all-profiles --kanban-db tests/fixtures/kanban/kanban.db --doctor-report tests/fixtures/doctor/report.json --out /tmp/hermes-forge-scan
@@ -35,48 +66,66 @@ hermes-forge eval --proposal /tmp/hermes-forge-scan/proposals/prop-0001/proposal
 hermes-forge apply --proposal /tmp/hermes-forge-scan/proposals/prop-0001/proposal.json
 ```
 
-`--out` must be outside the scanned Hermes home. This is enforced so scan mode cannot write into live profile inputs.
-
 Expected MVP apply result:
 
 ```json
 {"status": "APPLY_DISABLED_IN_MVP"}
 ```
 
-## Implemented now
-
-- CLI skeleton: `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`.
-- Read-only fixture scan.
-- Profile/skill/cron/log/session-metadata collectors over synthetic Hermes homes.
-- Optional Kanban DB and Doctor report import as aggregate/safe-summary evidence.
-- Evidence ledger JSONL.
-- Findings taxonomy and Markdown report.
-- Proposal artifacts with diff preview, eval plan and rollback plan.
-- Disabled apply/rollback stubs.
-- Redaction and path labels.
-- Tests proving redaction, read-only behavior and artifact generation.
-
-## Planned
-
-- Session schema coverage beyond the current bounded metadata fixture.
-- More deterministic eval templates.
-- Optional semantic judge.
-- Apply executors only after separate approval and backup/rollback tests.
-
-## Known limitations
-
-- Phase 0 uses synthetic fixtures by default.
-- Session DB support is metadata-only and schema-limited.
-- Kanban support is optional and metadata-only.
-- Log taxonomy is heuristic and category-only.
-- Eval output is a plan, not a benchmark runner.
-- `apply` is disabled in MVP.
+`apply` exits non-zero by design.
 
 ## Safety model
 
-Default scan is read-only. Forge writes only under `--out`. It does not restart gateways, execute cron jobs, run MCP servers, execute plugins, edit skills, edit memory, or push to GitHub.
+Default mode is read-only. Forge writes only under `--out`, and `--out` is blocked if it is inside the scanned Hermes home.
+
+Forge does not:
+
+- restart gateways;
+- execute cron jobs;
+- execute plugins;
+- execute MCP servers;
+- edit skills or memory;
+- send platform messages;
+- push to GitHub;
+- require network access.
+
+Session, log, skill, task and report text is treated as untrusted data, never as instructions.
 
 See [`docs/safety-model.md`](docs/safety-model.md).
+
+## Examples
+
+See [`examples/`](examples/) for source-checkout examples:
+
+- minimal Hermes fixture;
+- optional Kanban metadata;
+- existing Doctor report import;
+- `NO_CHANGE` proposal.
+
+## Current status
+
+Implemented:
+
+- CLI: `doctor`, `capabilities`, `scan`, `analyze`, `propose`, `eval`, `apply`, `rollback`;
+- read-only evidence adapters;
+- first-class `NO_CHANGE` proposals;
+- deterministic eval plans;
+- privacy scanner;
+- synthetic fixtures and tests;
+- repository-quality GitHub Actions workflow.
+
+Known limitations:
+
+- session DB support is metadata-only and schema-limited;
+- Kanban support is optional and metadata-only;
+- log taxonomy is heuristic and category-only;
+- eval output is a deterministic plan, not a benchmark runner;
+- `apply` is disabled in MVP.
+
+## Canonical source
+
+This project is maintained by Aleksei Ulianov / Sprut_AI.
+Original repository after publication: https://github.com/AlekseiUL/hermes-forge
 
 ## License
 
