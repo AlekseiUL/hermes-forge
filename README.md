@@ -313,6 +313,13 @@ Known limitations:
 - arbitrary unified diffs, configs, cron, memory, runtime files and skill bodies are not executable targets;
 - legacy proposal `apply` remains disabled in MVP.
 
+## Public links / Полезные ссылки
+
+- YouTube: https://youtube.com/@alekseiulianov
+- Telegram channel - Sprut AI: https://t.me/Sprut_AI
+- Telegram chat - Sprut AI: https://t.me/+eH-qNIDmud8zNDZi
+- AI Операционка: https://t.me/tribute/app?startapp=sJyg
+
 ## Canonical source
 
 This project is maintained by Aleksei Ulianov / Sprut_AI.
