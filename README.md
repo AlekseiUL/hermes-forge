@@ -12,14 +12,6 @@ It scans a Hermes home, collects safe evidence, groups weak signals, and produce
 
 It is **not autonomous self-modification**. It does not rewrite your agent by itself. The candidate `apply` path can run one bounded executor after explicit approval: `skill_frontmatter_metadata_v1`, which changes only approved `SKILL.md` frontmatter metadata after creating a local backup.
 
-## Коротко по-русски
-
-Hermes Forge - это контур самоулучшения агента для Hermes Agent.
-
-Он смотрит на реальную работу Hermes: профили, skills, cron, логи, session metadata, опционально Kanban и Doctor reports. Потом собирает безопасные evidence, находит повторяющиеся слабые места и готовит review-карточки: что можно улучшить, почему, чем это проверить и какой следующий шаг безопасен.
-
-Это не авто-переписывание агента. Forge не лезет в живую систему сам. По умолчанию он работает read-only и пишет артефакты только в `--out`. Apply ограничен одним узким executor: только явно одобренные metadata-поля в `SKILL.md`, с backup и без правки тела skill, memory, cron, configs или runtime-файлов.
-
 ## Why this exists
 
 Hermes Forge is inspired by the practical idea behind evidence-driven self-improvement work: improvement should not mean blind self-editing. It should mean a controlled loop where real behavior produces observations, observations become evidence, evidence becomes an improvement candidate, and the candidate is checked before anyone applies it.
@@ -312,6 +304,73 @@ Known limitations:
 - only one apply executor exists: `skill_frontmatter_metadata_v1`;
 - arbitrary unified diffs, configs, cron, memory, runtime files and skill bodies are not executable targets;
 - legacy proposal `apply` remains disabled in MVP.
+
+## Русская версия
+
+Hermes Forge - это локальный контур самоулучшения агента для Hermes Agent.
+
+Он нужен, когда агентная система уже работает не как игрушка, а как рабочий инструмент: есть профили, skills, cron-задачи, логи, session history, иногда Kanban и отдельные doctor reports. В такой системе рано или поздно появляется вопрос: что улучшать, почему именно это, как проверить результат и где безопасная граница изменения.
+
+Hermes Forge отвечает на этот вопрос через проверяемый цикл:
+
+```text
+наблюдения / evidence / opportunities / experiments / diff preview / apply gate
+```
+
+По умолчанию Forge работает read-only. Он читает только безопасные metadata и категории сигналов, собирает evidence ledger, группирует слабые места и готовит review-карточки. В карточке видно: что можно улучшить, какие evidence это подтверждают, какой experiment или eval нужен, что будет считаться успехом и какой следующий шаг безопасен.
+
+## Что он умеет сейчас
+
+- сканирует Hermes home и named profiles;
+- смотрит skill frontmatter metadata;
+- читает cron metadata без запуска jobs;
+- считает категории в логах без raw log text;
+- собирает session DB aggregate metadata;
+- опционально учитывает Kanban SQLite aggregate metadata;
+- опционально подтягивает summary из Doctor report;
+- делает `improve --mode read-only` report;
+- готовит experiment plan и diff-preview;
+- показывает candidate diff только как review artifact;
+- поддерживает один узкий apply executor: `skill_frontmatter_metadata_v1`.
+
+## Для кого
+
+- для пользователей Hermes Agent, у которых уже есть несколько профилей, skills, cron или runtime logs;
+- для разработчиков, которые хотят улучшать agent workflow через evidence, а не через догадки;
+- для команд, где перед изменением skills, routing или automation нужен review;
+- для тех, кто хочет повторяемый improvement loop без скрытого self-editing.
+
+## Что это не делает
+
+Forge не переписывает агента сам. Он не перезапускает gateway, не запускает cron, plugins или MCP servers, не отправляет platform messages и не пушит изменения в GitHub. Session, log, skill, task и report text считаются untrusted data, а не инструкциями.
+
+Apply сейчас ограничен одним executor. Он может менять только явно одобренные metadata-поля в `SKILL.md`: `description`, `tags`, `version`, `category`. Тело skill, memory, configs, cron, runtime files и arbitrary diffs не трогаются.
+
+## Быстрый старт
+
+```bash
+git clone https://github.com/AlekseiUL/hermes-forge.git
+cd hermes-forge
+python -m pip install -e ".[dev]"
+hermes-forge doctor
+hermes-forge capabilities
+```
+
+Read-only запуск по локальному Hermes:
+
+```bash
+hermes-forge improve --mode read-only --hermes-home ~/.hermes --all-profiles --out ./forge-runs/latest
+```
+
+После запуска откройте:
+
+```text
+./forge-runs/latest/report.md
+```
+
+## Что получается на выходе
+
+Forge создаёт набор локальных артефактов: `inventory.json`, `evidence-ledger.jsonl`, `findings.json`, `opportunities.json`, `proposals.json`, `report.md`, `redaction-report.json` и другие файлы для review. Эти артефакты по умолчанию считаются private local output. Перед публикацией их нужно проверять privacy scan.
 
 ## Public links / Полезные ссылки
 
