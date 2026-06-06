@@ -34,6 +34,7 @@ jobs:
           required = [
               'docs/safety-model.md',
               'docs/artifact-schema.md',
+              'docs/assets/hermes-forge-agent-self-improvement.jpg',
               'examples/README.md',
               'tests/fixtures/hermes_home_minimal/sessions.db',
               'tests/fixtures/kanban/kanban.db',

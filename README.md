@@ -1,5 +1,7 @@
 # Hermes Forge
 
+![Hermes Forge — agent self-improvement control plane](docs/assets/hermes-forge-agent-self-improvement.jpg)
+
 Universal local-first improvement loop for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
 Forge helps any Hermes user answer one practical question:

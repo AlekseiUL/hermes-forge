@@ -4,6 +4,7 @@ include NOTICE.md
 include SECURITY.md
 include .gitignore
 recursive-include docs *.md
+recursive-include docs/assets *.jpg
 recursive-include tests *.py
 recursive-include tests/fixtures *
 recursive-include scripts *.py
