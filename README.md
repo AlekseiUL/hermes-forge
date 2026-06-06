@@ -1,6 +1,6 @@
 # Hermes Forge
 
-![Hermes Forge — agent self-improvement control plane](docs/assets/hermes-forge-agent-self-improvement.jpg)
+![Hermes Forge: самоулучшение агента через evidence, evals и review gates](docs/assets/hermes-forge-agent-self-improvement.jpg)
 
 Universal local-first improvement loop for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
@@ -11,6 +11,14 @@ Forge helps any Hermes user answer one practical question:
 It scans a Hermes home, collects safe evidence, groups weak signals, and produces reviewable improvement opportunities with hypotheses, experiments, success criteria and safe next steps.
 
 It is **not autonomous self-modification**. It does not rewrite your agent by itself. The candidate `apply` path can run one bounded executor after explicit approval: `skill_frontmatter_metadata_v1`, which changes only approved `SKILL.md` frontmatter metadata after creating a local backup.
+
+## Коротко по-русски
+
+Hermes Forge - это контур самоулучшения агента для Hermes Agent.
+
+Он смотрит на реальную работу Hermes: профили, skills, cron, логи, session metadata, опционально Kanban и Doctor reports. Потом собирает безопасные evidence, находит повторяющиеся слабые места и готовит review-карточки: что можно улучшить, почему, чем это проверить и какой следующий шаг безопасен.
+
+Это не авто-переписывание агента. Forge не лезет в живую систему сам. По умолчанию он работает read-only и пишет артефакты только в `--out`. Apply ограничен одним узким executor: только явно одобренные metadata-поля в `SKILL.md`, с backup и без правки тела skill, memory, cron, configs или runtime-файлов.
 
 ## Why this exists
 
