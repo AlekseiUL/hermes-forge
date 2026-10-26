@@ -38,14 +38,22 @@ def collect_doctor_report_evidence(report_path: Path | None, hermes_home: Path, 
     if resolved.suffix.lower() == ".json":
         try:
             data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError("doctor report must be an object")
             status = str(data.get("status") or data.get("overall_status") or data.get("ok") or "unknown")
             findings = data.get("findings")
             if isinstance(findings, list):
                 finding_count = len(findings)
+            elif isinstance(data.get("checks"), list):
+                for check in data["checks"]:
+                    if not isinstance(check, dict) or not isinstance(check.get("findings"), list):
+                        raise ValueError("invalid doctor check findings")
+                    finding_count += len(check["findings"])
             elif isinstance(data.get("summary"), dict):
                 finding_count = int(data["summary"].get("findings", 0) or 0)
         except (json.JSONDecodeError, TypeError, ValueError):
             status = "unparseable_json"
+            finding_count = 0
     else:
         lowered = raw.lower()
         for marker in ("blocker", "major", "minor", "warn", "ok"):
